@@ -142,6 +142,16 @@ struct NotesDrawer: View {
     @State private var measured: CGFloat = 34
     @FocusState private var focused: Bool
 
+    /// Two lines of room to start, growing to about a dozen before it scrolls.
+    private var wellHeight: CGFloat { min(max(measured + 4, 40), 260) }
+
+    /// Text ignores a trailing newline when it measures, so the well would
+    /// stay put on the Return that opens a new line. The space forces it.
+    private var twinText: String {
+        if text.isEmpty { return " " }
+        return text.hasSuffix("\n") ? text + " " : text
+    }
+
     private let noteFont = Font.system(size: 12.5)
     private let noteLeading: CGFloat = 3
     /// NSTextView lays its text out inside a small padding of its own; the
@@ -165,15 +175,20 @@ struct NotesDrawer: View {
                     // A hidden twin of the text does the measuring, so the
                     // drawer grows line by line instead of parking at a fixed
                     // height with dead space under two lines of note.
-                    Text(text.isEmpty ? " " : text)
+                    // fixedSize is what makes it work: without it the twin is
+                    // squeezed into the height it is supposed to be reporting,
+                    // and the well can never grow past its starting size.
+                    Text(twinText)
                         .font(noteFont)
                         .lineSpacing(noteLeading)
                         .padding(.leading, editorInset)
                         .frame(maxWidth: .infinity, alignment: .topLeading)
-                        .opacity(0)
+                        .fixedSize(horizontal: false, vertical: true)
                         .background(GeometryReader { g in
                             Color.clear.preference(key: NoteHeightKey.self, value: g.size.height)
                         })
+                        .opacity(0)
+                        .allowsHitTesting(false)
                     if text.isEmpty {
                         Text("Notes…")
                             .font(noteFont)
@@ -197,8 +212,8 @@ struct NotesDrawer: View {
                             .focused($focused)
                     }
                 }
-                .frame(height: min(max(measured, 34), 260), alignment: .topLeading)
-                .animation(.spring(response: 0.26, dampingFraction: 0.9), value: measured)
+                .frame(height: wellHeight, alignment: .topLeading)
+                .animation(.spring(response: 0.26, dampingFraction: 0.9), value: wellHeight)
                 .onPreferenceChange(NoteHeightKey.self) { h in
                     if abs(h - measured) > 0.5 { measured = h }
                 }
