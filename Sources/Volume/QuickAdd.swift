@@ -106,53 +106,30 @@ struct QuickAddView: View {
     private var parsed: (title: String, est: Int)? { Self.parse(text) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                BarsGlyph()
-                Eyebrow(text: "Quick add — up next", color: Theme.faint, size: 13)
-                Spacer()
-                Text("⇧⌘␣")
-                    .font(Theme.mono(10, .medium))
-                    .foregroundStyle(Theme.faint)
-            }
+        HStack(spacing: 12) {
+            BarsGlyph()
             if Theme.isRendering {
-                Text(text.isEmpty ? "task + its time" : text)
+                Text(text.isEmpty ? "task + time" : text)
                     .font(.system(size: 19, weight: .medium))
                     .foregroundStyle(Theme.text)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                TextField("task + its time  ·  review creatives 30m", text: $text)
+                TextField("task + time", text: $text)
                     .textFieldStyle(.plain)
                     .font(.system(size: 19, weight: .medium))
                     .foregroundStyle(Theme.text)
                     .focused($focused)
                     .onSubmit { submit() }
             }
-            HStack(spacing: 8) {
-                if let p = parsed {
-                    Chip(text: "est \(TimeParse.format(p.est))", color: Theme.accent)
-                    Text(p.title)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Theme.dim)
-                        .lineLimit(1)
-                    Spacer()
-                    Text("↩ add")
-                        .font(Theme.mono(10, .medium))
-                        .foregroundStyle(Theme.accent)
-                } else {
-                    Text("End with the estimate — 30m, 1h30, 1:30…")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Theme.faint)
-                    Spacer()
-                    Text("esc close")
-                        .font(Theme.mono(10, .medium))
-                        .foregroundStyle(Theme.faint)
-                }
+            if let p = parsed {
+                Chip(text: TimeParse.format(p.est), color: Theme.accent)
             }
         }
-        .padding(18)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .frame(width: 560)
-        .background(Theme.bg, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.hairline))
+        .background(Theme.bg, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.hairline))
         .environment(\.colorScheme, .dark)
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { focused = true }
