@@ -17,17 +17,21 @@ func render(px: Int) -> Data {
     let rect = NSRect(x: inset, y: inset, width: s - 2 * inset, height: s - 2 * inset)
     let bg = NSBezierPath(roundedRect: rect, xRadius: s * 0.185, yRadius: s * 0.185)
     NSGradient(colors: [
-        NSColor(calibratedRed: 0.33, green: 0.32, blue: 0.86, alpha: 1),
-        NSColor(calibratedRed: 0.64, green: 0.27, blue: 0.89, alpha: 1),
-    ])!.draw(in: bg, angle: -55)
+        NSColor(calibratedRed: 0.075, green: 0.086, blue: 0.11, alpha: 1),
+        NSColor(calibratedRed: 0.11, green: 0.13, blue: 0.165, alpha: 1),
+    ])!.draw(in: bg, angle: 90)
 
-    NSColor.white.setFill()
     let barW = rect.width * 0.155
     let gap = rect.width * 0.085
-    let heights: [CGFloat] = [0.30, 0.48, 0.68]
+    let bars: [(CGFloat, NSColor)] = [
+        (0.30, NSColor(calibratedRed: 0.54, green: 0.58, blue: 0.65, alpha: 1)),
+        (0.48, NSColor(calibratedRed: 0.54, green: 0.58, blue: 0.65, alpha: 1)),
+        (0.72, NSColor(calibratedRed: 1.0, green: 0.48, blue: 0.10, alpha: 1)),
+    ]
     let totalW = barW * 3 + gap * 2
     var x = rect.midX - totalW / 2
-    for h in heights {
+    for (h, color) in bars {
+        color.setFill()
         let bar = NSRect(x: x, y: rect.minY + rect.height * 0.16,
                          width: barW, height: rect.height * h)
         NSBezierPath(roundedRect: bar, xRadius: barW * 0.3, yRadius: barW * 0.3).fill()

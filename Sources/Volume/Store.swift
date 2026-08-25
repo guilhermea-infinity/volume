@@ -31,11 +31,16 @@ final class Store: ObservableObject {
     }
 
     private func open() {
-        let dir = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Volume", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let path = dir.appendingPathComponent("volume.db").path
+        let path: String
+        if let override = ProcessInfo.processInfo.environment["VOLUME_DB"] {
+            path = override
+        } else {
+            let dir = FileManager.default
+                .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("Volume", isDirectory: true)
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            path = dir.appendingPathComponent("volume.db").path
+        }
         guard sqlite3_open(path, &db) == SQLITE_OK else { return }
         exec("PRAGMA journal_mode=WAL;")
         exec("""

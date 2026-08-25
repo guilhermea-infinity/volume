@@ -14,26 +14,49 @@ struct HistoryView: View {
     var body: some View {
         let groups = makeGroups()
         HStack(spacing: 0) {
-            List(selection: $selected) {
-                ForEach(groups) { g in
-                    Section("\(g.label) · \(TimeParse.format(g.totalFocused))") {
+            MaybeScroll {
+                LazyVStack(alignment: .leading, spacing: 3) {
+                    ForEach(groups) { g in
+                        HStack(spacing: 8) {
+                            Eyebrow(text: g.label, color: Theme.faint, size: 13)
+                            Spacer()
+                            Text(TimeParse.format(g.totalFocused))
+                                .font(Theme.mono(10, .medium))
+                                .foregroundStyle(Theme.faint)
+                        }
+                        .padding(.top, 14)
+                        .padding(.bottom, 5)
+                        .padding(.horizontal, 6)
                         ForEach(g.days, id: \.self) { day in
-                            DayRowLabel(day: day).tag(day)
+                            DayRow(day: day,
+                                   isSelected: (selected ?? groups.first?.days.first) == day) {
+                                withAnimation(.easeOut(duration: 0.15)) { selected = day }
+                            }
                         }
                     }
+                    if groups.isEmpty {
+                        Text("No history yet. Finish your first task.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Theme.faint)
+                            .padding(14)
+                    }
                 }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 14)
             }
-            .frame(width: 330)
+            .frame(width: 320)
 
-            Divider()
+            Rectangle().fill(Theme.hairline).frame(width: 1)
 
             if let day = selected ?? groups.first?.days.first {
                 DayDetail(day: day)
             } else {
                 VStack {
                     Spacer()
-                    Text("No history yet — finish your first task.")
-                        .foregroundStyle(.secondary)
+                    Eyebrow(text: "The archive", color: Theme.faint)
+                    Text("Every finished day lands here.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Theme.faint)
                     Spacer()
                 }
                 .frame(maxWidth: .infinity)
@@ -67,21 +90,36 @@ struct HistoryView: View {
     }
 }
 
-struct DayRowLabel: View {
+struct DayRow: View {
     @EnvironmentObject var store: Store
     let day: Date
+    let isSelected: Bool
+    let onTap: () -> Void
+    @State private var hover = false
 
     var body: some View {
         let interval = Stats.dayInterval(day)
         let focused = Stats.focusedMinutes(store.entries, in: interval)
         let tasks = Stats.completed(store.entries, kind: .task, in: interval).count
+
         HStack {
             Text(day.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
+                .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? Theme.text : Theme.dim)
             Spacer()
             Text("\(TimeParse.format(focused)) · \(tasks)")
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
+                .font(Theme.mono(10.5, .medium))
+                .foregroundStyle(isSelected ? Theme.accent : Theme.faint)
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(
+            isSelected ? Theme.accent.opacity(0.13) : (hover ? Theme.raised : .clear),
+            in: RoundedRectangle(cornerRadius: 8)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture { onTap() }
+        .onHover { hover = $0 }
     }
 }
 
@@ -99,20 +137,29 @@ struct DayDetail: View {
         let taskCount = items.filter { $0.kind == .task }.count
 
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(day.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-                    .font(.title2.bold())
-                Text("Focused \(TimeParse.format(focused)) · \(taskCount) tasks · Calls \(TimeParse.format(calls))")
-                    .foregroundStyle(.secondary)
-            }
-            .padding(18)
-
-            List {
-                ForEach(items) { e in
-                    DoneRow(entry: e)
+            VStack(alignment: .leading, spacing: 8) {
+                Eyebrow(text: day.formatted(.dateTime.weekday(.wide).day().month(.wide)),
+                        color: Theme.faint, size: 14)
+                HStack(alignment: .firstTextBaseline, spacing: 26) {
+                    StatBlock(label: "Focused", value: TimeParse.format(focused),
+                              color: Theme.accent, size: 34)
+                    StatBlock(label: "Tasks", value: "\(taskCount)")
+                    StatBlock(label: "Calls", value: TimeParse.format(calls),
+                              color: calls > 0 ? Theme.call : Theme.dim)
                 }
             }
+            .padding(20)
+
+            MaybeScroll {
+                LazyVStack(spacing: 8) {
+                    ForEach(items) { e in
+                        DoneRow(entry: e)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+            }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }

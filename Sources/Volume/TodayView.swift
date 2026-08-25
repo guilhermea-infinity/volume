@@ -4,11 +4,13 @@ struct TodayView: View {
     @EnvironmentObject var store: Store
     @State private var title = ""
     @State private var estimate = ""
-    @FocusState private var focusTitle: Bool
+    @FocusState private var focusedField: Field?
     @State private var completing: Entry?
     @State private var showRetro = false
     @State private var showCall = false
     @State private var now = Date.now
+
+    enum Field { case title, estimate }
 
     private var canAdd: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
@@ -25,93 +27,121 @@ struct TodayView: View {
         let callsToday = Stats.callMinutes(store.entries, in: dayInterval)
         let tasksToday = doneToday.filter { $0.kind == .task }.count
 
-        VStack(spacing: 0) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-                        .font(.title2.bold())
-                    Text("Focused \(TimeParse.format(focusedToday)) · \(tasksToday) tasks · Calls \(TimeParse.format(callsToday))")
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 0) {
+            // Scoreboard strip
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Eyebrow(text: now.formatted(.dateTime.weekday(.wide).day().month(.wide)),
+                            color: Theme.faint, size: 14)
+                    HStack(alignment: .firstTextBaseline, spacing: 26) {
+                        StatBlock(label: "Focused", value: TimeParse.format(focusedToday),
+                                  color: Theme.accent, size: 40)
+                        StatBlock(label: "Tasks", value: "\(tasksToday)")
+                        StatBlock(label: "Calls", value: TimeParse.format(callsToday),
+                                  color: callsToday > 0 ? Theme.call : Theme.dim)
+                    }
+                    .animation(.spring(duration: 0.5), value: focusedToday)
                 }
                 Spacer()
-                Button("Log past work") { showRetro = true }
-                Button("Log call") { showCall = true }
+                HStack(spacing: 8) {
+                    GhostButton(title: "Log past work") { showRetro = true }
+                    GhostButton(title: "Log call") { showCall = true }
+                }
             }
-            .padding(.horizontal, 18)
-            .padding(.top, 16)
-            .padding(.bottom, 10)
+            .padding(.horizontal, 20)
+            .padding(.top, 18)
+            .padding(.bottom, 16)
 
-            HStack(spacing: 8) {
-                TextField("What are you going to do?", text: $title)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($focusTitle)
-                    .onSubmit { add() }
-                TextField("Estimate (45m, 1h30…)", text: $estimate)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 170)
-                    .onSubmit { add() }
-                Button("Add") { add() }
-                    .disabled(!canAdd)
+            // Command bar
+            HStack(spacing: 10) {
+                if Theme.isRendering {
+                    Text("What are you going to do?")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .foregroundStyle(Theme.faint)
+                        .darkField()
+                    Text("est — 45m, 1h30")
+                        .foregroundStyle(Theme.faint)
+                        .darkField()
+                        .frame(width: 150)
+                } else {
+                    TextField("What are you going to do?", text: $title)
+                        .darkField(focused: focusedField == .title)
+                        .focused($focusedField, equals: .title)
+                        .onSubmit { add() }
+                    TextField("est — 45m, 1h30", text: $estimate)
+                        .darkField(focused: focusedField == .estimate)
+                        .focused($focusedField, equals: .estimate)
+                        .frame(width: 150)
+                        .onSubmit { add() }
+                }
+                AccentButton(title: "Add", disabled: !canAdd) { add() }
             }
-            .padding(.horizontal, 18)
-            .padding(.bottom, 8)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
 
-            List {
-                Section("Planned (\(planned.count))") {
-                    if planned.isEmpty {
-                        Text("Nothing planned — add something above.")
-                            .foregroundStyle(.secondary)
-                    }
+            // Two lanes
+            HStack(alignment: .top, spacing: 14) {
+                Lane(title: "Up next", count: planned.count,
+                     empty: "Nothing planned. Add the first task above.") {
                     ForEach(planned) { e in
                         PlannedRow(entry: e) { completing = e }
                     }
                 }
-                Section("Done today (\(doneToday.count))") {
-                    if doneToday.isEmpty {
-                        Text("Nothing yet — go get one.")
-                            .foregroundStyle(.secondary)
-                    }
+                Lane(title: "Done today", count: doneToday.count,
+                     empty: "Nothing yet. Finish one and log it.") {
                     ForEach(doneToday) { e in
                         DoneRow(entry: e)
                     }
                 }
             }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 18)
+            .animation(.spring(duration: 0.4), value: store.entries)
         }
         .sheet(item: $completing) { CompleteSheet(entry: $0) }
         .sheet(isPresented: $showRetro) { RetroSheet() }
         .sheet(isPresented: $showCall) { CallSheet() }
-        .onAppear { focusTitle = true }
+        .onAppear { focusedField = .title }
         .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { now = $0 }
     }
 
     private func add() {
         guard canAdd, let est = TimeParse.minutes(from: estimate) else { return }
-        store.addPlanned(title: title.trimmingCharacters(in: .whitespaces), estimateMin: est)
+        withAnimation(.spring(duration: 0.4)) {
+            store.addPlanned(title: title.trimmingCharacters(in: .whitespaces), estimateMin: est)
+        }
         title = ""
         estimate = ""
-        focusTitle = true
+        focusedField = .title
     }
 }
 
-struct PlannedRow: View {
-    @EnvironmentObject var store: Store
-    let entry: Entry
-    let onDone: () -> Void
+struct Lane<Content: View>: View {
+    let title: String
+    let count: Int
+    let empty: String
+    @ViewBuilder var content: Content
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "circle")
-                .foregroundStyle(.secondary)
-            Text(entry.title)
-            Spacer()
-            Badge(text: "est \(TimeParse.format(entry.estimateMin ?? 0))", color: .gray)
-            Button("Done") { onDone() }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Eyebrow(text: title)
+                Text("\(count)")
+                    .font(Theme.mono(11))
+                    .foregroundStyle(Theme.faint)
+            }
+            if count == 0 {
+                Text(empty)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.faint)
+                    .padding(.top, 2)
+                Spacer(minLength: 0)
+            } else {
+                MaybeScroll {
+                    LazyVStack(spacing: 8) { content }
+                }
+            }
         }
-        .padding(.vertical, 2)
-        .contextMenu {
-            Button("Delete", role: .destructive) { store.delete(entry.id) }
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
