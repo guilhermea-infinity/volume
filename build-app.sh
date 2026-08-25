@@ -33,6 +33,10 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>LSMinimumSystemVersion</key>  <string>14.0</string>
     <key>LSApplicationCategoryType</key> <string>public.app-category.productivity</string>
     <key>NSHighResolutionCapable</key> <true/>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>Volume reads your calendar to log meeting time automatically.</string>
+    <key>NSCalendarsUsageDescription</key>
+    <string>Volume reads your calendar to log meeting time automatically.</string>
 </dict>
 </plist>
 PLIST

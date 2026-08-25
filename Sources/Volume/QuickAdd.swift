@@ -12,6 +12,7 @@ final class QuickAdd: NSObject, NSWindowDelegate {
     private weak var store: Store?
     private var hotKeyRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?
+    private var keyMonitor: Any?
 
     func configure(store: Store) {
         self.store = store
@@ -72,9 +73,28 @@ final class QuickAdd: NSObject, NSWindowDelegate {
 
         panel = p
         p.makeKeyAndOrderFront(nil)
+
+        // Tab = open the full app
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, let panel = self.panel, event.window === panel else { return event }
+            if event.keyCode == 48 { // tab
+                MainActor.assumeIsolated { self.openMainApp() }
+                return nil
+            }
+            return event
+        }
+    }
+
+    func openMainApp() {
+        close()
+        NSApp.activate(ignoringOtherApps: true)
+        if let win = NSApp.windows.first(where: { !($0 is KeyablePanel) && $0.styleMask.contains(.titled) }) {
+            win.makeKeyAndOrderFront(nil)
+        }
     }
 
     func close() {
+        if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil }
         panel?.orderOut(nil)
         panel = nil
     }

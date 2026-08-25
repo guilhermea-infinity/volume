@@ -28,7 +28,13 @@ final class Store: ObservableObject {
     init() {
         open()
         load()
+        // Pick up external writes (calendar sync) even when idle
+        Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.reload() }
+        }
     }
+
+    func reload() { load() }
 
     private func open() {
         let path: String
@@ -51,9 +57,15 @@ final class Store: ObservableObject {
           estimate_min INTEGER,
           actual_min INTEGER,
           created_at INTEGER NOT NULL,
-          completed_at INTEGER
+          completed_at INTEGER,
+          source TEXT,
+          external_id TEXT
         );
         """)
+        // Migrations for DBs created before calendar sync (errors are no-ops when the column exists)
+        exec("ALTER TABLE entries ADD COLUMN source TEXT")
+        exec("ALTER TABLE entries ADD COLUMN external_id TEXT")
+        exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_external ON entries(external_id) WHERE external_id IS NOT NULL")
     }
 
     private func exec(_ sql: String) {
@@ -88,7 +100,7 @@ final class Store: ObservableObject {
             }
             sqlite3_finalize(st)
         }
-        entries = out
+        if out != entries { entries = out }
     }
 
     // MARK: - Mutations
@@ -130,6 +142,32 @@ final class Store: ObservableObject {
             sqlite3_bind_int(st, 2, Int32(minutes))
             sqlite3_bind_int64(st, 3, ts)
             sqlite3_bind_int64(st, 4, ts)
+        }
+        load()
+    }
+
+    struct CalendarCall {
+        let externalId: String
+        let title: String
+        let minutes: Int
+        let endedAt: Date
+    }
+
+    /// Reconciles calendar-sourced calls inside the window: the calendar is
+    /// the source of truth there, manual entries are never touched.
+    func syncCalendarCalls(_ items: [CalendarCall], windowStart: Date, windowEnd: Date) {
+        run("DELETE FROM entries WHERE source = 'calendar' AND completed_at >= ? AND completed_at <= ?") { st in
+            sqlite3_bind_int64(st, 1, Int64(windowStart.timeIntervalSince1970))
+            sqlite3_bind_int64(st, 2, Int64(windowEnd.timeIntervalSince1970))
+        }
+        for item in items {
+            run("INSERT OR IGNORE INTO entries(kind, title, actual_min, created_at, completed_at, source, external_id) VALUES('call', ?, ?, ?, ?, 'calendar', ?)") { st in
+                sqlite3_bind_text(st, 1, item.title, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_int(st, 2, Int32(item.minutes))
+                sqlite3_bind_int64(st, 3, Int64(item.endedAt.timeIntervalSince1970))
+                sqlite3_bind_int64(st, 4, Int64(item.endedAt.timeIntervalSince1970))
+                sqlite3_bind_text(st, 5, item.externalId, -1, SQLITE_TRANSIENT)
+            }
         }
         load()
     }

@@ -19,6 +19,23 @@ SQLite file at `~/Library/Application Support/Volume/volume.db`.
 Calls are tracked but **excluded** from the focused-minutes score — the goal is to
 watch that share shrink. Weeks run Monday–Sunday. Right-click any row to delete it.
 
+## Quick add
+
+**⇧⌘Space** anywhere pops a one-line capture widget: type `task name 30m`
+(trailing time = estimate), Enter adds it to Up next, Esc dismisses,
+**Tab opens the full app**. Works while Volume runs, even with its window closed.
+
+## Calendar sync
+
+Meetings are logged automatically as calls: the app reads macOS Calendar
+(EventKit) at launch and every 15 minutes — no network calls of its own, no
+OAuth. Requirements: grant Calendar access on first launch, and have your
+Google account in System Settings → Internet Accounts with Calendars enabled.
+Rules: ended events with 2+ attendees, not declined, 5m–8h, last 14 days.
+Calendar-sourced entries are reconciled on every sync (edits/deletions on the
+calendar propagate); manually logged calls are never touched — so don't log
+calendar meetings by hand or they'll double-count.
+
 ## Build
 
 ```

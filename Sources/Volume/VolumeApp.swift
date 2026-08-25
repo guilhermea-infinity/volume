@@ -15,6 +15,7 @@ struct VolumeApp: App {
         let s = Store()
         _store = StateObject(wrappedValue: s)
         QuickAdd.shared.configure(store: s)
+        CalendarSync.shared.configure(store: s)
     }
 
     var body: some Scene {
