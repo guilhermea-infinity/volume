@@ -118,7 +118,7 @@ struct GhostRaceBar: View {
         GeometryReader { geo in
             let w = geo.size.width
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.black.opacity(0.35))
+                Capsule().fill(Theme.track)
                 Capsule().strokeBorder(Theme.hairline)
                 if let p = progress, p > 0 {
                     Capsule()
@@ -269,7 +269,6 @@ private struct SheetChrome<Content: View>: View {
         }
         .padding(22)
         .background(Theme.bg)
-        .preferredColorScheme(.dark)
     }
 }
 

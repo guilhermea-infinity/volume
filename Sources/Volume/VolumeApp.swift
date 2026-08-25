@@ -37,14 +37,27 @@ enum AppTab: String, CaseIterable {
 
 struct RootView: View {
     @State private var tab: AppTab
+    @State private var showSettings = false
+    @StateObject private var settings = AppSettings()
+    @Environment(\.colorScheme) private var systemScheme
 
     init(tab: AppTab = .today) {
         _tab = State(initialValue: tab)
     }
 
+    private var resolvedScheme: ColorScheme {
+        switch settings.appearance {
+        case "light": .light
+        case "dark": .dark
+        default: systemScheme
+        }
+    }
+
     var body: some View {
+        let scheme = resolvedScheme
+        let _ = { Theme.mode = scheme }()
         VStack(spacing: 0) {
-            TopBar(tab: $tab)
+            TopBar(tab: $tab, showSettings: $showSettings)
             Rectangle().fill(Theme.hairline).frame(height: 1)
             Group {
                 switch tab {
@@ -55,15 +68,26 @@ struct RootView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .id("appearance-\(settings.appearance)-\(scheme == .dark ? "d" : "l")")
         .background(Theme.bg.ignoresSafeArea())
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(settings.appearance == "system" ? nil : scheme)
         .tint(Theme.accent)
-        .onAppear { NSApplication.shared.appearance = NSAppearance(named: .darkAqua) }
+        .sheet(isPresented: $showSettings) { SettingsSheet().environmentObject(settings) }
+        .environmentObject(settings)
+        .onAppear { applyAppAppearance(scheme) }
+        .onChange(of: settings.appearance) { _, _ in applyAppAppearance(resolvedScheme) }
+    }
+
+    private func applyAppAppearance(_ scheme: ColorScheme) {
+        NSApplication.shared.appearance = settings.appearance == "system"
+            ? nil
+            : NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
     }
 }
 
 struct TopBar: View {
     @Binding var tab: AppTab
+    @Binding var showSettings: Bool
     @Namespace private var underline
 
     var body: some View {
@@ -83,9 +107,10 @@ struct TopBar: View {
                     }
                 }
             }
+            IconButton(symbol: "gearshape.fill") { showSettings = true }
         }
-        .padding(.leading, 86)
-        .padding(.trailing, 22)
+        .padding(.leading, 74)
+        .padding(.trailing, 14)
         .frame(height: 54)
         .background(Theme.bg)
     }

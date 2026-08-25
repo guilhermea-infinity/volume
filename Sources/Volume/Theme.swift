@@ -3,21 +3,25 @@ import SwiftUI
 enum Theme {
     /// True when rendering headless previews — swaps ScrollViews for plain stacks.
     static var isRendering = false
+    /// Resolved appearance, set by RootView before the tree evaluates.
+    static var mode: ColorScheme = .dark
+    private static var dark: Bool { mode == .dark }
 
-    // Palette — night-session scoreboard
-    static let bg       = Color(hex: 0x0D1015)
-    static let surface  = Color(hex: 0x151B23)
-    static let raised   = Color(hex: 0x1D2530)
-    static let hairline = Color.white.opacity(0.08)
-    static let text     = Color(hex: 0xF4F1E8)
-    static let dim      = Color(hex: 0xF4F1E8).opacity(0.55)
-    static let faint    = Color(hex: 0xF4F1E8).opacity(0.32)
-    static let accent   = Color(hex: 0xFF7A1A)   // you
-    static let accentHi = Color(hex: 0xFFB25A)
-    static let ghost    = Color(hex: 0x8A93A6)   // last week's you
-    static let good     = Color(hex: 0x3DD68C)   // under estimate
-    static let over     = Color(hex: 0xFF5B5B)   // over estimate
-    static let call     = Color(hex: 0x5AA9FF)
+    // Palette — night session (dark) / day session (light)
+    static var bg: Color       { dark ? Color(hex: 0x0D1015) : Color(hex: 0xF4F2EC) }
+    static var surface: Color  { dark ? Color(hex: 0x151B23) : Color(hex: 0xFCFBF7) }
+    static var raised: Color   { dark ? Color(hex: 0x1D2530) : Color(hex: 0xE9E6DD) }
+    static var hairline: Color { dark ? .white.opacity(0.08) : .black.opacity(0.09) }
+    static var text: Color     { dark ? Color(hex: 0xF4F1E8) : Color(hex: 0x191A1E) }
+    static var dim: Color      { text.opacity(0.55) }
+    static var faint: Color    { text.opacity(dark ? 0.32 : 0.36) }
+    static var accent: Color   { dark ? Color(hex: 0xFF7A1A) : Color(hex: 0xEE650D) }   // you
+    static var accentHi: Color { dark ? Color(hex: 0xFFB25A) : Color(hex: 0xFF8E3D) }
+    static var ghost: Color    { dark ? Color(hex: 0x8A93A6) : Color(hex: 0x707A8C) }   // last week's you
+    static var good: Color     { dark ? Color(hex: 0x3DD68C) : Color(hex: 0x17A05E) }   // under estimate
+    static var over: Color     { dark ? Color(hex: 0xFF5B5B) : Color(hex: 0xD84C4C) }   // over estimate
+    static var call: Color     { dark ? Color(hex: 0x5AA9FF) : Color(hex: 0x2E7BD4) }
+    static var track: Color    { dark ? .black.opacity(0.35) : .black.opacity(0.07) }
 
     /// Scoreboard numerals.
     static func din(_ size: CGFloat) -> Font { .custom("DINAlternate-Bold", size: size) }

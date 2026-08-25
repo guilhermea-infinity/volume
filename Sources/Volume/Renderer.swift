@@ -6,13 +6,15 @@ import AppKit
 @MainActor
 enum Renderer {
     static func renderAll(to dir: String) {
+        let light = ProcessInfo.processInfo.environment["VOLUME_RENDER_APPEARANCE"] == "light"
+        Theme.mode = light ? .light : .dark
         let store = Store()
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         for tab in AppTab.allCases {
             let content = RootView(tab: tab)
                 .environmentObject(store)
                 .frame(width: 1120, height: 740)
-                .environment(\.colorScheme, .dark)
+                .environment(\.colorScheme, light ? .light : .dark)
             let renderer = ImageRenderer(content: content)
             renderer.scale = 2
             guard let img = renderer.nsImage,
@@ -29,9 +31,9 @@ enum Renderer {
 
         let quickAdd = QuickAddView(initialText: "review IDS creatives batch 4 30m",
                                     onAdd: { _, _ in }, onCancel: {})
-            .environment(\.colorScheme, .dark)
+            .environment(\.colorScheme, light ? .light : .dark)
             .padding(30)
-            .background(Color.black.opacity(0.94))
+            .background(light ? Color(hex: 0xE5E2D9) : Color.black.opacity(0.94))
         let qr = ImageRenderer(content: quickAdd)
         qr.scale = 2
         if let img = qr.nsImage, let tiff = img.tiffRepresentation,

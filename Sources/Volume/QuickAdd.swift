@@ -150,7 +150,7 @@ struct QuickAddView: View {
         .frame(width: 560)
         .background(Theme.bg, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.hairline))
-        .environment(\.colorScheme, .dark)
+        .environment(\.colorScheme, Theme.mode)
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { focused = true }
         }
