@@ -149,7 +149,8 @@ struct TodayView: View {
              empty: "Nothing planned. Add the first task above.", scrolls: scrolls) {
             ForEach(planned) { e in
                 PlannedRow(entry: e, isOpen: openID == e.id,
-                           onToggle: { toggle(e.id) }) { completing = e }
+                           onToggle: { toggle(e.id) },
+                           onEdit: { editing = e }) { completing = e }
                     .transition(.asymmetric(
                         insertion: .scale(scale: 0.96).combined(with: .opacity),
                         removal: .scale(scale: 0.88).combined(with: .opacity)))

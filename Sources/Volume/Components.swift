@@ -413,6 +413,7 @@ struct PlannedRow: View {
     let entry: Entry
     var isOpen = false
     var onToggle: () -> Void = {}
+    var onEdit: (() -> Void)? = nil
     let onDone: () -> Void
 
     var body: some View {
@@ -431,10 +432,11 @@ struct PlannedRow: View {
                 AccentButton(title: "Done", action: onDone)
             }
         } drawer: {
-            NotesDrawer(entry: entry, onClose: onToggle)
+            NotesDrawer(entry: entry, onEdit: onEdit, onClose: onToggle)
         }
         .contextMenu {
             Button(isOpen ? "Hide notes" : "Notes", action: onToggle)
+            if onEdit != nil { Button("Edit") { onEdit?() } }
             Button("Delete", role: .destructive) { store.delete(entry.id) }
         }
     }
@@ -668,30 +670,38 @@ struct EditSheet: View {
     }
 
     private var isCall: Bool { entry.kind == .call }
+    /// Still in Up next: no actual, no time it happened at.
+    private var isPlanned: Bool { entry.completedAt == nil }
     private var estMin: Int? { TimeParse.minutes(from: estimate) }
     private var actMin: Int? { TimeParse.minutes(from: actual) }
     private var valid: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
-            && actMin != nil
             && (isCall || estMin != nil)
+            && (isPlanned || actMin != nil)
     }
 
     var body: some View {
-        SheetChrome(eyebrow: isCall ? "Edit call" : "Edit task") {
+        SheetChrome(eyebrow: isCall ? "Edit call" : (isPlanned ? "Edit task" : "Edit logged task")) {
             TextField("Title", text: $title)
                 .darkField(focused: focused)
                 .focused($focused)
             HStack(spacing: 8) {
                 if !isCall {
-                    TextField("Estimate", text: $estimate).darkField()
+                    TextField("Estimate", text: $estimate)
+                        .darkField()
+                        .onSubmit { save() }
                 }
-                TextField(isCall ? "Duration" : "Actual", text: $actual)
-                    .darkField()
-                    .onSubmit { save() }
+                if !isPlanned {
+                    TextField(isCall ? "Duration" : "Actual", text: $actual)
+                        .darkField()
+                        .onSubmit { save() }
+                }
             }
-            DatePicker("When", selection: $when, in: ...Date.now)
-                .font(.system(size: 12))
-                .foregroundStyle(Theme.dim)
+            if !isPlanned {
+                DatePicker("When", selection: $when, in: ...Date.now)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.dim)
+            }
             if entry.source == "calendar" {
                 Text("Synced from your calendar. Saving takes this entry over — later calendar changes stop applying to it.")
                     .font(.system(size: 11))
@@ -713,12 +723,12 @@ struct EditSheet: View {
     }
 
     private func save() {
-        guard valid, let act = actMin else { return }
+        guard valid else { return }
         store.update(entry.id,
                      title: title.trimmingCharacters(in: .whitespaces),
                      estimateMin: isCall ? nil : estMin,
-                     actualMin: act,
-                     completedAt: when)
+                     actualMin: isPlanned ? nil : actMin,
+                     completedAt: isPlanned ? nil : when)
         dismiss()
     }
 }

@@ -35,8 +35,8 @@ no Gatekeeper quarantine to fight.
 
 Click a row to unfold its notes — a well that grows with what you write, saves
 as you type, and leaves a small mark on the row so you can see which tasks are
-carrying one. A finished row's drawer also holds **Edit**, for fixing a title,
-an estimate, an actual, or the day it landed on.
+carrying one. Every drawer also holds **Edit** — a title and an estimate while
+the task is still up next, plus the actual and the day it landed once it's done.
 
 ![Notes drawer](assets/screenshots/today-notes.png)
 
