@@ -108,6 +108,16 @@ enum Feedback {
         play("Hero", volume: 0.35)
     }
 
+    /// The click of a row passing another while you drag it. No sound — this
+    /// one fires many times in a second.
+    static func reorderTick() {
+        haptic(.alignment)
+    }
+
+    static func dropped() {
+        haptic(.generic)
+    }
+
     private static func haptic(_ pattern: NSHapticFeedbackManager.FeedbackPattern) {
         NSHapticFeedbackManager.defaultPerformer.perform(pattern, performanceTime: .now)
     }

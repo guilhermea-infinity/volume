@@ -10,6 +10,11 @@ struct TodayView: View {
     @State private var showCall = false
     @State private var editing: Entry?
     @State private var expanded: Int64?
+    @State private var dragID: Int64?
+    @State private var dragFrom: Int?
+    @State private var dragTo: Int?
+    @State private var dragOffset: CGFloat = 0
+    @State private var rowStride: CGFloat = 48
     @State private var burstAt: Date?
     @State private var burstTint = Theme.accent
     @State private var burstCount = 18
@@ -33,7 +38,9 @@ struct TodayView: View {
         let doneToday = store.entries
             .filter { e in e.completedAt.map { dayInterval.contains($0) } ?? false }
             .sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
-        let planned = store.entries.filter { $0.kind == .task && !$0.isDone }
+        let planned = store.entries
+            .filter { $0.kind == .task && !$0.isDone }
+            .sorted { ($0.sortIndex, $0.id) < ($1.sortIndex, $1.id) }
         let focusedToday = Stats.focusedMinutes(store.entries, in: dayInterval)
         let callsToday = Stats.callMinutes(store.entries, in: dayInterval)
         let tasksToday = doneToday.filter { $0.kind == .task }.count
@@ -134,6 +141,9 @@ struct TodayView: View {
             .onPreferenceChange(LaneWidthKey.self) { w in
                 if abs(w - laneWidth) > 0.5 { laneWidth = w }
             }
+            .onPreferenceChange(RowHeightKey.self) { h in
+                if h > 1, abs(h + 8 - rowStride) > 0.5 { rowStride = h + 8 }
+            }
         }
         .sheet(item: $completing) { CompleteSheet(entry: $0) }
         .sheet(item: $editing) { EditSheet(entry: $0) }
@@ -147,10 +157,22 @@ struct TodayView: View {
     private func upNextLane(_ planned: [Entry], openID: Int64?, scrolls: Bool) -> some View {
         Lane(title: "Up next", count: planned.count,
              empty: "Nothing planned. Add the first task above.", scrolls: scrolls) {
-            ForEach(planned) { e in
+            ForEach(Array(planned.enumerated()), id: \.element.id) { i, e in
+                let lifted = dragID == e.id
                 PlannedRow(entry: e, isOpen: openID == e.id,
                            onToggle: { toggle(e.id) },
                            onEdit: { editing = e }) { completing = e }
+                    .background(rowRuler(measuring: openID != e.id))
+                    .offset(y: lifted ? dragOffset : shift(i))
+                    .scaleEffect(lifted ? 1.02 : 1)
+                    .shadow(color: .black.opacity(lifted ? 0.5 : 0),
+                            radius: lifted ? 16 : 0, y: lifted ? 8 : 0)
+                    .zIndex(lifted ? 2 : 0)
+                    // The row under the cursor tracks it exactly; everything
+                    // else springs out of the way.
+                    .animation(lifted ? nil : .spring(response: 0.28, dampingFraction: 0.82),
+                               value: dragTo)
+                    .gesture(reorderGesture(planned, index: i, id: e.id))
                     .transition(.asymmetric(
                         insertion: .scale(scale: 0.96).combined(with: .opacity),
                         removal: .scale(scale: 0.88).combined(with: .opacity)))
@@ -170,6 +192,62 @@ struct TodayView: View {
                         removal: .opacity))
             }
         }
+    }
+
+    /// Only closed rows report their height — an open drawer would make the
+    /// list think every row is note-sized.
+    @ViewBuilder
+    private func rowRuler(measuring: Bool) -> some View {
+        if measuring {
+            GeometryReader { g in
+                Color.clear.preference(key: RowHeightKey.self, value: g.size.height)
+            }
+        }
+    }
+
+    /// How far a row steps aside to open a gap where the dragged one will land.
+    private func shift(_ i: Int) -> CGFloat {
+        guard dragID != nil, let from = dragFrom, let to = dragTo, from != to else { return 0 }
+        if from < to, i > from, i <= to { return -rowStride }
+        if from > to, i >= to, i < from { return rowStride }
+        return 0
+    }
+
+    private func reorderGesture(_ planned: [Entry], index: Int, id: Int64) -> some Gesture {
+        DragGesture(minimumDistance: 6)
+            .onChanged { value in
+                if dragID != id {
+                    dragID = id
+                    dragFrom = index
+                    dragTo = index
+                    // Uniform heights while dragging, so the gap maths hold.
+                    if expanded != nil {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { expanded = nil }
+                    }
+                    Feedback.reorderTick()
+                }
+                dragOffset = value.translation.height
+                let steps = Int((dragOffset / rowStride).rounded())
+                let target = min(max(index + steps, 0), planned.count - 1)
+                if target != dragTo {
+                    dragTo = target
+                    Feedback.reorderTick()
+                }
+            }
+            .onEnded { _ in
+                if let from = dragFrom, let to = dragTo, from != to {
+                    var ids = planned.map(\.id)
+                    ids.insert(ids.remove(at: from), at: to)
+                    store.reorder(ids)
+                    Feedback.dropped()
+                }
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
+                    dragID = nil
+                    dragFrom = nil
+                    dragTo = nil
+                    dragOffset = 0
+                }
+            }
     }
 
     /// One drawer at a time — the lane stays a list, not a pile of open boxes.
@@ -204,6 +282,14 @@ struct TodayView: View {
         title = ""
         estimate = ""
         focusedField = .title
+    }
+}
+
+/// Height of one closed row, so a drag knows how far a step is.
+struct RowHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat { 0 }
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 

@@ -18,6 +18,8 @@ struct Entry: Identifiable, Hashable {
     var completedAt: Date?
     var tag: String?
     var notes: String?
+    /// Hand-sorted position in Up next.
+    var sortIndex: Int = 0
     /// nil for hand-logged entries; "calendar" while the sync owns the row.
     var source: String?
 
@@ -106,6 +108,9 @@ final class Store: ObservableObject {
         exec("ALTER TABLE entries ADD COLUMN external_id TEXT")
         exec("ALTER TABLE entries ADD COLUMN tag TEXT")
         exec("ALTER TABLE entries ADD COLUMN notes TEXT")
+        exec("ALTER TABLE entries ADD COLUMN sort_index INTEGER")
+        // Rows from before hand-sorting keep the order they already had.
+        exec("UPDATE entries SET sort_index = id WHERE sort_index IS NULL")
         exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_external ON entries(external_id) WHERE external_id IS NOT NULL")
     }
 
@@ -124,7 +129,7 @@ final class Store: ObservableObject {
     private func load() {
         var out: [Entry] = []
         var stmt: OpaquePointer?
-        let sql = "SELECT id, kind, title, estimate_min, actual_min, created_at, completed_at, tag, source, notes FROM entries ORDER BY created_at ASC, id ASC"
+        let sql = "SELECT id, kind, title, estimate_min, actual_min, created_at, completed_at, tag, source, notes, sort_index FROM entries ORDER BY created_at ASC, id ASC"
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK, let st = stmt {
             while sqlite3_step(st) == SQLITE_ROW {
                 let id = sqlite3_column_int64(st, 0)
@@ -139,9 +144,11 @@ final class Store: ObservableObject {
                 let tag = sqlite3_column_text(st, 7).map { String(cString: $0) }
                 let source = sqlite3_column_text(st, 8).map { String(cString: $0) }
                 let notes = sqlite3_column_text(st, 9).map { String(cString: $0) }
+                let sortIndex = sqlite3_column_type(st, 10) == SQLITE_NULL
+                    ? Int(id) : Int(sqlite3_column_int64(st, 10))
                 out.append(Entry(id: id, kind: kind, title: title, estimateMin: est,
                                  actualMin: act, createdAt: created, completedAt: completed,
-                                 tag: tag, notes: notes, source: source))
+                                 tag: tag, notes: notes, sortIndex: sortIndex, source: source))
             }
             sqlite3_finalize(st)
         }
@@ -151,7 +158,11 @@ final class Store: ObservableObject {
     // MARK: - Mutations
 
     func addPlanned(title: String, estimateMin: Int) {
-        run("INSERT INTO entries(kind, title, estimate_min, created_at) VALUES('task', ?, ?, ?)") { st in
+        // New work lands at the bottom of Up next, under whatever you've sorted.
+        run("""
+            INSERT INTO entries(kind, title, estimate_min, created_at, sort_index)
+            VALUES('task', ?, ?, ?, (SELECT COALESCE(MAX(sort_index), -1) + 1 FROM entries))
+            """) { st in
             sqlite3_bind_text(st, 1, title, -1, SQLITE_TRANSIENT)
             sqlite3_bind_int(st, 2, Int32(estimateMin))
             sqlite3_bind_int64(st, 3, Int64(Date.now.timeIntervalSince1970))
@@ -245,6 +256,19 @@ final class Store: ObservableObject {
 
     private func bindInt64(_ st: OpaquePointer, _ idx: Int32, _ value: Int64?) {
         if let value { sqlite3_bind_int64(st, idx, value) } else { sqlite3_bind_null(st, idx) }
+    }
+
+    /// Writes the hand-sorted order of Up next, top to bottom.
+    func reorder(_ ids: [Int64]) {
+        exec("BEGIN")
+        for (i, id) in ids.enumerated() {
+            run("UPDATE entries SET sort_index = ? WHERE id = ?") { st in
+                sqlite3_bind_int(st, 1, Int32(i))
+                sqlite3_bind_int64(st, 2, id)
+            }
+        }
+        exec("COMMIT")
+        load()
     }
 
     /// Notes save as you type, so nothing here reloads the whole table — the

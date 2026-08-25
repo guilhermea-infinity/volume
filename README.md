@@ -33,6 +33,10 @@ no Gatekeeper quarantine to fight.
   goes green. Tiles for tasks done, estimation accuracy, best day, call load.
 - **History** — every day archived, grouped by week.
 
+Drag a row up or down to reorder Up next: the rest step aside as you go, it
+clicks against your trackpad as you pass each one, and the order sticks. New
+tasks land at the bottom, under whatever you've sorted.
+
 Click a row to unfold its notes — a well that grows with what you write, saves
 as you type, and leaves a small mark on the row so you can see which tasks are
 carrying one. Every drawer also holds **Edit** — a title and an estimate while
