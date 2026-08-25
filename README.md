@@ -17,9 +17,14 @@ cd volume
 ./build-app.sh --install
 ```
 
-Requirements: macOS 14+, Xcode Command Line Tools (`xcode-select --install`).
-That's it — `Volume.app` lands in /Applications. Building locally also means
-no Gatekeeper quarantine to fight.
+Requirements: macOS 14+ and the Xcode Command Line Tools, version 16 or newer —
+`xcode-select --install`, or `softwareupdate --list` if yours predates Swift 6.
+No other dependencies: nothing to install, no package manager, no accounts.
+
+That's it — about a minute of compiling and `Volume.app` lands in /Applications.
+Building locally also means no Gatekeeper quarantine to fight; the app is signed
+ad-hoc on your own machine. Run `./build-app.sh` without `--install` to get the
+bundle in `build/` instead.
 
 ## What it does
 
