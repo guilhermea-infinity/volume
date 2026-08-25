@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 import Carbon.HIToolbox
 
-/// Global-hotkey quick capture: ⌥⌘V from anywhere pops a floating card
+/// Global-hotkey quick capture: ⌥⌘Space from anywhere pops a floating card
 /// that adds a task straight into Up next.
 @MainActor
 final class QuickAdd: NSObject, NSWindowDelegate {
@@ -27,10 +27,10 @@ final class QuickAdd: NSObject, NSWindowDelegate {
         }, 1, &eventType, nil, &handlerRef)
 
         let hotKeyID = EventHotKeyID(signature: OSType(0x564F4C31), id: 1) // 'VOL1'
-        let status = RegisterEventHotKey(UInt32(kVK_ANSI_V),
+        let status = RegisterEventHotKey(UInt32(kVK_Space),
                                          UInt32(cmdKey | optionKey),
                                          hotKeyID, GetEventDispatcherTarget(), 0, &hotKeyRef)
-        print(status == noErr ? "hotkey registered: opt-cmd-V" : "hotkey registration failed: \(status)")
+        print(status == noErr ? "hotkey registered: opt-cmd-Space" : "hotkey registration failed: \(status)")
         fflush(stdout)
     }
 
@@ -111,7 +111,7 @@ struct QuickAddView: View {
                 BarsGlyph()
                 Eyebrow(text: "Quick add — up next", color: Theme.faint, size: 13)
                 Spacer()
-                Text("⌥⌘V")
+                Text("⌥⌘␣")
                     .font(Theme.mono(10, .medium))
                     .foregroundStyle(Theme.faint)
             }
