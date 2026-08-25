@@ -9,8 +9,12 @@ struct TodayView: View {
     @State private var showRetro = false
     @State private var showCall = false
     @State private var now = Date.now
+    @State private var laneWidth: CGFloat = 1000
 
     enum Field { case title, estimate }
+
+    /// Below this the two lanes stop fitting side by side and stack instead.
+    private var stacked: Bool { laneWidth < 760 }
 
     private var canAdd: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
@@ -79,30 +83,59 @@ struct TodayView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 16)
 
-            // Two lanes
-            HStack(alignment: .top, spacing: 14) {
-                Lane(title: "Up next", count: planned.count,
-                     empty: "Nothing planned. Add the first task above.") {
-                    ForEach(planned) { e in
-                        PlannedRow(entry: e) { completing = e }
+            // Lanes: side by side when there is room, stacked when there isn't.
+            Group {
+                if stacked {
+                    MaybeScroll {
+                        VStack(alignment: .leading, spacing: 18) {
+                            upNextLane(planned, scrolls: false)
+                            doneLane(doneToday, scrolls: false)
+                        }
                     }
-                }
-                Lane(title: "Done today", count: doneToday.count,
-                     empty: "Nothing yet. Finish one and log it.") {
-                    ForEach(doneToday) { e in
-                        DoneRow(entry: e)
+                } else {
+                    HStack(alignment: .top, spacing: 14) {
+                        upNextLane(planned, scrolls: true)
+                        doneLane(doneToday, scrolls: true)
                     }
                 }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 18)
             .animation(.spring(duration: 0.4), value: store.entries)
+            .background(
+                GeometryReader { g in
+                    Color.clear.preference(key: LaneWidthKey.self, value: g.size.width)
+                }
+            )
+            .onPreferenceChange(LaneWidthKey.self) { w in
+                if abs(w - laneWidth) > 0.5 { laneWidth = w }
+            }
         }
         .sheet(item: $completing) { CompleteSheet(entry: $0) }
         .sheet(isPresented: $showRetro) { RetroSheet() }
         .sheet(isPresented: $showCall) { CallSheet() }
         .onAppear { focusedField = .title }
         .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { now = $0 }
+    }
+
+    @ViewBuilder
+    private func upNextLane(_ planned: [Entry], scrolls: Bool) -> some View {
+        Lane(title: "Up next", count: planned.count,
+             empty: "Nothing planned. Add the first task above.", scrolls: scrolls) {
+            ForEach(planned) { e in
+                PlannedRow(entry: e) { completing = e }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func doneLane(_ doneToday: [Entry], scrolls: Bool) -> some View {
+        Lane(title: "Done today", count: doneToday.count,
+             empty: "Nothing yet. Finish one and log it.", scrolls: scrolls) {
+            ForEach(doneToday) { e in
+                DoneRow(entry: e)
+            }
+        }
     }
 
     private func add() {
@@ -116,10 +149,21 @@ struct TodayView: View {
     }
 }
 
+/// Width of the lane container, so Today can pick its layout.
+struct LaneWidthKey: PreferenceKey {
+    static var defaultValue: CGFloat { 0 }
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 struct Lane<Content: View>: View {
     let title: String
     let count: Int
     let empty: String
+    /// Side by side, each lane scrolls itself. Stacked, the page scrolls instead
+    /// and the lane sizes to its rows.
+    var scrolls: Bool = true
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -135,13 +179,15 @@ struct Lane<Content: View>: View {
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.faint)
                     .padding(.top, 2)
-                Spacer(minLength: 0)
-            } else {
+                if scrolls { Spacer(minLength: 0) }
+            } else if scrolls {
                 MaybeScroll {
                     LazyVStack(spacing: 8) { content }
                 }
+            } else {
+                LazyVStack(spacing: 8) { content }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: scrolls ? .infinity : nil, alignment: .topLeading)
     }
 }

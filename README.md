@@ -33,10 +33,20 @@ no Gatekeeper quarantine to fight.
   goes green. Tiles for tasks done, estimation accuracy, best day, call load.
 - **History** — every day archived, grouped by week.
 
+Up next and Done today sit side by side at full width, and stack when you pull
+the window in to half a screen.
+
+<img src="assets/screenshots/today-narrow.png" width="420" alt="Today at half width">
+
 **Quick add from anywhere**: press **⇧⌘Space** — a floating one-liner pops up.
 Type `review creatives 30m`, Enter. Tab opens the full app.
 
 ![Quick add](assets/screenshots/quickadd.png)
+
+**Menu bar scoreboard**: the mark sits in the menu bar all day. Click it for
+today's focused time, tasks and calls without switching windows.
+
+<img src="assets/screenshots/menubar.png" width="360" alt="Menu bar panel">
 
 **Calendar sync**: meetings (2+ attendees, not declined) auto-log as call time
 via EventKit — the OS does the syncing, the app never touches the network.
@@ -58,8 +68,8 @@ Two backends, picked automatically:
 
 Neither sends anything anywhere.
 
-**Settings** (⚙): dark / light / system appearance, calendar sync toggle +
-status, auto-tagging backend + re-tag, start at login.
+**Settings** (⚙, top right): dark / light / system appearance, calendar sync
+toggle + status, auto-tagging backend + re-tag, start at login.
 
 ![Light mode](assets/screenshots/week-light.png)
 

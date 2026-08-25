@@ -4,6 +4,10 @@ import ServiceManagement
 
 @MainActor
 final class AppSettings: ObservableObject {
+    /// One instance for the whole app — the window and the menu bar panel
+    /// resolve appearance from the same place.
+    static let shared = AppSettings()
+
     @Published var appearance: String {
         didSet { UserDefaults.standard.set(appearance, forKey: "appearance") }
     }

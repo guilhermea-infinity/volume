@@ -10,11 +10,14 @@ enum Renderer {
         Theme.mode = light ? .light : .dark
         let store = Store()
         store.tagPendingSync()
+        let env = ProcessInfo.processInfo.environment
+        let w = Double(env["VOLUME_RENDER_W"] ?? "") ?? 1120
+        let h = Double(env["VOLUME_RENDER_H"] ?? "") ?? 740
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         for tab in AppTab.allCases {
             let content = RootView(tab: tab)
                 .environmentObject(store)
-                .frame(width: 1120, height: 740)
+                .frame(width: w, height: h)
                 .environment(\.colorScheme, light ? .light : .dark)
             let renderer = ImageRenderer(content: content)
             renderer.scale = 2
@@ -26,6 +29,21 @@ enum Renderer {
                 continue
             }
             let url = URL(fileURLWithPath: dir).appendingPathComponent("\(tab.rawValue.lowercased()).png")
+            try? png.write(to: url)
+            print("wrote \(url.path)")
+        }
+
+        let menuBar = MenuBarPanel()
+            .environmentObject(store)
+            .environment(\.colorScheme, light ? .light : .dark)
+            .padding(24)
+            .background(light ? Color(hex: 0xE5E2D9) : Color.black.opacity(0.94))
+        let mr = ImageRenderer(content: menuBar)
+        mr.scale = 2
+        if let img = mr.nsImage, let tiff = img.tiffRepresentation,
+           let rep = NSBitmapImageRep(data: tiff),
+           let png = rep.representation(using: .png, properties: [:]) {
+            let url = URL(fileURLWithPath: dir).appendingPathComponent("menubar.png")
             try? png.write(to: url)
             print("wrote \(url.path)")
         }

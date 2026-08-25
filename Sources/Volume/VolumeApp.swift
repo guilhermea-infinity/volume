@@ -23,10 +23,17 @@ struct VolumeApp: App {
         WindowGroup(id: "main") {
             RootView()
                 .environmentObject(store)
-                .frame(minWidth: 980, minHeight: 640)
+                .frame(minWidth: 640, minHeight: 560)
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1120, height: 740)
+
+        MenuBarExtra {
+            MenuBarPanel().environmentObject(store)
+        } label: {
+            Image(nsImage: MenuBarIcon.image)
+        }
+        .menuBarExtraStyle(.window)
     }
 }
 
@@ -40,7 +47,7 @@ struct RootView: View {
     @EnvironmentObject var store: Store
     @State private var tab: AppTab
     @State private var showSettings = false
-    @StateObject private var settings = AppSettings()
+    @ObservedObject private var settings = AppSettings.shared
     @Environment(\.colorScheme) private var systemScheme
     @Environment(\.openWindow) private var openWindow
 
@@ -97,9 +104,10 @@ struct TopBar: View {
     @Namespace private var underline
 
     var body: some View {
-        HStack(spacing: 24) {
-            HStack(spacing: 9) {
+        HStack(alignment: .firstTextBaseline, spacing: 24) {
+            HStack(alignment: .firstTextBaseline, spacing: 9) {
                 BarsGlyph()
+                    .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
                 Text("VOLUME")
                     .font(Theme.labelHeavy(19))
                     .tracking(4)
@@ -112,12 +120,14 @@ struct TopBar: View {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { tab = t }
                     }
                 }
+                TabIcon(symbol: "gearshape.fill") { showSettings = true }
             }
-            IconButton(symbol: "gearshape.fill") { showSettings = true }
         }
-        .padding(.leading, 74)
-        .padding(.trailing, 14)
-        .frame(height: 54)
+        .padding(.leading, 20)
+        .padding(.trailing, 16)
+        // The window's safe area already keeps this row clear of the traffic
+        // lights, so the wordmark can sit flush at the left edge.
+        .padding(.vertical, 10)
         .background(Theme.bg)
     }
 }
@@ -161,5 +171,38 @@ struct TabButton: View {
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
+    }
+}
+
+/// An icon that lives in the tab row: same optical size, same baseline, same
+/// underline slot — so it reads as one of the options rather than a stray glyph.
+struct TabIcon: View {
+    let symbol: String
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 5) {
+                // A hidden label glyph sizes the icon slot, so the gear inherits
+                // the tabs' exact height and baseline instead of guessing at them.
+                Text("W")
+                    .font(Theme.labelHeavy(16))
+                    .foregroundStyle(.clear)
+                    .frame(width: 17)
+                    .overlay {
+                        Image(systemName: symbol)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(hover ? Theme.dim : Theme.faint)
+                    }
+                Color.clear.frame(width: 17, height: 3)
+            }
+            .fixedSize()
+            .padding(.horizontal, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+        .animation(.easeOut(duration: 0.12), value: hover)
     }
 }
