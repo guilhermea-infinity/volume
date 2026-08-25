@@ -75,18 +75,160 @@ struct CardBG: ViewModifier {
 }
 extension View { func card() -> some View { modifier(CardBG()) } }
 
-struct RowCard<Content: View>: View {
+/// A row that can unfold. Open, the card and its drawer are one surface — the
+/// row doesn't sprout a second box, it grows.
+struct ExpandableRow<Row: View, Drawer: View>: View {
+    let isOpen: Bool
+    let onToggle: () -> Void
+    @ViewBuilder var row: Row
+    @ViewBuilder var drawer: Drawer
     @State private var hover = false
-    @ViewBuilder var content: Content
 
     var body: some View {
-        content
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-            .background(hover ? Theme.raised : Theme.surface, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.hairline))
-            .onHover { hover = $0 }
-            .animation(.easeOut(duration: 0.12), value: hover)
+        VStack(spacing: 0) {
+            row
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onToggle)
+            if isOpen {
+                Rectangle().fill(Theme.hairline).frame(height: 1)
+                drawer
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .background(hover && !isOpen ? Theme.raised : Theme.surface,
+                    in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10)
+            .strokeBorder(isOpen ? Theme.accent.opacity(0.4) : Theme.hairline))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .onHover { hover = $0 }
+        .animation(.easeOut(duration: 0.12), value: hover)
+        .animation(.spring(response: 0.34, dampingFraction: 0.84), value: isOpen)
+    }
+}
+
+/// Marks a row that is carrying a note, so you can see it without opening it.
+struct NoteMark: View {
+    let hasNotes: Bool
+
+    var body: some View {
+        if hasNotes {
+            Image(systemName: "text.alignleft")
+                .font(.system(size: 8.5, weight: .bold))
+                .foregroundStyle(Theme.accent.opacity(0.75))
+                .transition(.scale.combined(with: .opacity))
+        }
+    }
+}
+
+private struct NoteHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat { 0 }
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+/// The drawer itself. Saves as you type — there is nothing to press, and no
+/// state to lose.
+struct NotesDrawer: View {
+    @EnvironmentObject var store: Store
+    let entry: Entry
+    var onEdit: (() -> Void)? = nil
+    var onClose: () -> Void = {}
+
+    @State private var text: String
+    @State private var pendingSave: Task<Void, Never>?
+    @State private var measured: CGFloat = 34
+    @FocusState private var focused: Bool
+
+    private let noteFont = Font.system(size: 12.5)
+    private let noteLeading: CGFloat = 3
+    /// NSTextView lays its text out inside a small padding of its own; the
+    /// placeholder and the measuring twin match it rather than fight it.
+    private let editorInset: CGFloat = 5
+
+    init(entry: Entry, onEdit: (() -> Void)? = nil, onClose: @escaping () -> Void = {}) {
+        self.entry = entry
+        self.onEdit = onEdit
+        self.onClose = onClose
+        _text = State(initialValue: entry.notes ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .top, spacing: 10) {
+                Capsule()
+                    .fill(Theme.accent.opacity(0.5))
+                    .frame(width: 2)
+                ZStack(alignment: .topLeading) {
+                    // A hidden twin of the text does the measuring, so the
+                    // drawer grows line by line instead of parking at a fixed
+                    // height with dead space under two lines of note.
+                    Text(text.isEmpty ? " " : text)
+                        .font(noteFont)
+                        .lineSpacing(noteLeading)
+                        .padding(.leading, editorInset)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .opacity(0)
+                        .background(GeometryReader { g in
+                            Color.clear.preference(key: NoteHeightKey.self, value: g.size.height)
+                        })
+                    if text.isEmpty {
+                        Text("Notes…")
+                            .font(noteFont)
+                            .foregroundStyle(Theme.faint)
+                            .padding(.leading, editorInset)
+                    }
+                    if Theme.isRendering {
+                        Text(text)
+                            .font(noteFont)
+                            .foregroundStyle(Theme.text.opacity(0.9))
+                            .lineSpacing(noteLeading)
+                            .padding(.leading, editorInset)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                    } else {
+                        TextEditor(text: $text)
+                            .textEditorStyle(.plain)
+                            .scrollContentBackground(.hidden)
+                            .font(noteFont)
+                            .foregroundStyle(Theme.text.opacity(0.9))
+                            .lineSpacing(noteLeading)
+                            .focused($focused)
+                    }
+                }
+                .frame(height: min(max(measured, 34), 260), alignment: .topLeading)
+                .animation(.spring(response: 0.26, dampingFraction: 0.9), value: measured)
+                .onPreferenceChange(NoteHeightKey.self) { h in
+                    if abs(h - measured) > 0.5 { measured = h }
+                }
+            }
+            if let onEdit {
+                HStack {
+                    Spacer()
+                    GhostButton(title: "Edit", action: onEdit)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Theme.track)
+        .onAppear { focused = true }
+        .onExitCommand { commit(); onClose() }
+        .onChange(of: text) { _, new in
+            pendingSave?.cancel()
+            pendingSave = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(450))
+                guard !Task.isCancelled else { return }
+                store.setNotes(new, for: entry.id)
+            }
+        }
+        .onDisappear { commit() }
+    }
+
+    private func commit() {
+        pendingSave?.cancel()
+        store.setNotes(text, for: entry.id)
     }
 }
 
@@ -254,10 +396,12 @@ struct Tile: View {
 struct PlannedRow: View {
     @EnvironmentObject var store: Store
     let entry: Entry
+    var isOpen = false
+    var onToggle: () -> Void = {}
     let onDone: () -> Void
 
     var body: some View {
-        RowCard {
+        ExpandableRow(isOpen: isOpen, onToggle: onToggle) {
             HStack(spacing: 10) {
                 Circle()
                     .strokeBorder(Theme.faint, lineWidth: 1.5)
@@ -266,12 +410,16 @@ struct PlannedRow: View {
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.text)
                     .lineLimit(1)
+                NoteMark(hasNotes: !isOpen && entry.notes?.isEmpty == false)
                 Spacer(minLength: 8)
                 Chip(text: "est \(TimeParse.format(entry.estimateMin ?? 0))", color: Theme.ghost)
                 AccentButton(title: "Done", action: onDone)
             }
+        } drawer: {
+            NotesDrawer(entry: entry, onClose: onToggle)
         }
         .contextMenu {
+            Button(isOpen ? "Hide notes" : "Notes", action: onToggle)
             Button("Delete", role: .destructive) { store.delete(entry.id) }
         }
     }
@@ -280,6 +428,8 @@ struct PlannedRow: View {
 struct DoneRow: View {
     @EnvironmentObject var store: Store
     let entry: Entry
+    var isOpen = false
+    var onToggle: () -> Void = {}
     var onEdit: (() -> Void)? = nil
     @State private var landed = false
 
@@ -292,7 +442,7 @@ struct DoneRow: View {
     }
 
     var body: some View {
-        RowCard {
+        ExpandableRow(isOpen: isOpen, onToggle: onToggle) {
             HStack(spacing: 10) {
                 ZStack {
                     Circle().fill(resultColor.opacity(0.16)).frame(width: 18, height: 18)
@@ -304,6 +454,7 @@ struct DoneRow: View {
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.dim)
                     .lineLimit(1)
+                NoteMark(hasNotes: !isOpen && entry.notes?.isEmpty == false)
                 Spacer(minLength: 8)
                 if entry.kind == .task, let est = entry.estimateMin {
                     Chip(text: "est \(TimeParse.format(est))", color: Theme.ghost)
@@ -318,14 +469,14 @@ struct DoneRow: View {
                         .frame(width: 42, alignment: .trailing)
                 }
             }
+        } drawer: {
+            NotesDrawer(entry: entry, onEdit: onEdit, onClose: onToggle)
         }
         .overlay(
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(resultColor.opacity(landed ? 0.85 : 0), lineWidth: 1.5)
         )
         .scaleEffect(landed ? 1.025 : 1, anchor: .leading)
-        .contentShape(Rectangle())
-        .onTapGesture { onEdit?() }
         // The row you just finished announces itself, then settles.
         .onAppear {
             guard let c = entry.completedAt, Date.now.timeIntervalSince(c) < 2.5 else { return }
@@ -336,6 +487,7 @@ struct DoneRow: View {
             }
         }
         .contextMenu {
+            Button(isOpen ? "Hide notes" : "Notes", action: onToggle)
             if onEdit != nil { Button("Edit") { onEdit?() } }
             Button("Delete", role: .destructive) { store.delete(entry.id) }
         }

@@ -48,6 +48,23 @@ enum Renderer {
             print("wrote \(url.path)")
         }
 
+        // Today with a notes drawer open.
+        Theme.renderNotesOpen = true
+        let noting = RootView(tab: .today)
+            .environmentObject(store)
+            .frame(width: w, height: h)
+            .environment(\.colorScheme, light ? .light : .dark)
+        let nr = ImageRenderer(content: noting)
+        nr.scale = 2
+        if let img = nr.nsImage, let tiff = img.tiffRepresentation,
+           let rep = NSBitmapImageRep(data: tiff),
+           let png = rep.representation(using: .png, properties: [:]) {
+            let url = URL(fileURLWithPath: dir).appendingPathComponent("today-notes.png")
+            try? png.write(to: url)
+            print("wrote \(url.path)")
+        }
+        Theme.renderNotesOpen = false
+
         // Today, caught mid-celebration — checks the burst sits over the
         // number without moving anything.
         Theme.renderBurstAt = Date.now.addingTimeInterval(-0.28)

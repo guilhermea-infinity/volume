@@ -9,6 +9,7 @@ struct TodayView: View {
     @State private var showRetro = false
     @State private var showCall = false
     @State private var editing: Entry?
+    @State private var expanded: Int64?
     @State private var burstAt: Date?
     @State private var burstTint = Theme.accent
     @State private var burstCount = 18
@@ -36,6 +37,7 @@ struct TodayView: View {
         let focusedToday = Stats.focusedMinutes(store.entries, in: dayInterval)
         let callsToday = Stats.callMinutes(store.entries, in: dayInterval)
         let tasksToday = doneToday.filter { $0.kind == .task }.count
+        let openID = expanded ?? (Theme.renderNotesOpen ? planned.first?.id : nil)
 
         VStack(alignment: .leading, spacing: 0) {
             // Scoreboard strip
@@ -110,14 +112,14 @@ struct TodayView: View {
                 if stacked {
                     MaybeScroll {
                         VStack(alignment: .leading, spacing: 18) {
-                            upNextLane(planned, scrolls: false)
-                            doneLane(doneToday, scrolls: false)
+                            upNextLane(planned, openID: openID, scrolls: false)
+                            doneLane(doneToday, openID: openID, scrolls: false)
                         }
                     }
                 } else {
                     HStack(alignment: .top, spacing: 14) {
-                        upNextLane(planned, scrolls: true)
-                        doneLane(doneToday, scrolls: true)
+                        upNextLane(planned, openID: openID, scrolls: true)
+                        doneLane(doneToday, openID: openID, scrolls: true)
                     }
                 }
             }
@@ -142,11 +144,12 @@ struct TodayView: View {
     }
 
     @ViewBuilder
-    private func upNextLane(_ planned: [Entry], scrolls: Bool) -> some View {
+    private func upNextLane(_ planned: [Entry], openID: Int64?, scrolls: Bool) -> some View {
         Lane(title: "Up next", count: planned.count,
              empty: "Nothing planned. Add the first task above.", scrolls: scrolls) {
             ForEach(planned) { e in
-                PlannedRow(entry: e) { completing = e }
+                PlannedRow(entry: e, isOpen: openID == e.id,
+                           onToggle: { toggle(e.id) }) { completing = e }
                     .transition(.asymmetric(
                         insertion: .scale(scale: 0.96).combined(with: .opacity),
                         removal: .scale(scale: 0.88).combined(with: .opacity)))
@@ -155,15 +158,23 @@ struct TodayView: View {
     }
 
     @ViewBuilder
-    private func doneLane(_ doneToday: [Entry], scrolls: Bool) -> some View {
+    private func doneLane(_ doneToday: [Entry], openID: Int64?, scrolls: Bool) -> some View {
         Lane(title: "Done today", count: doneToday.count,
              empty: "Nothing yet. Finish one and log it.", scrolls: scrolls) {
             ForEach(doneToday) { e in
-                DoneRow(entry: e) { editing = e }
+                DoneRow(entry: e, isOpen: openID == e.id,
+                        onToggle: { toggle(e.id) }) { editing = e }
                     .transition(.asymmetric(
                         insertion: .scale(scale: 0.9).combined(with: .opacity),
                         removal: .opacity))
             }
+        }
+    }
+
+    /// One drawer at a time — the lane stays a list, not a pile of open boxes.
+    private func toggle(_ id: Int64) {
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+            expanded = expanded == id ? nil : id
         }
     }
 

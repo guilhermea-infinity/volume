@@ -27,16 +27,23 @@ no Gatekeeper quarantine to fight.
 
 - **Today** — quick-add a task with an estimate (`45m`, `1h30`, `1:30`, `90`
   all parse). Hit **Done** and it asks what it actually took: green badge =
-  within estimate, red = over. Log past work and ad-hoc calls too. Click any
-  finished row to fix it — title, estimate, actual, or the day it landed on.
-  Finishing pays out: the row lands lit, the focused number kicks and rolls up,
-  and a burst of bars comes off it — green and bigger when you beat your own
-  estimate. Passing the ghost sets off its own. Sound is a toggle in Settings;
-  everything respects Reduce Motion.
+  within estimate, red = over. Log past work and ad-hoc calls too.
 - **Week** — focused minutes vs last week, with a **ghost**: a marker showing
   exactly where last-week-you was at this moment. Beat the week and the bar
   goes green. Tiles for tasks done, estimation accuracy, best day, call load.
 - **History** — every day archived, grouped by week.
+
+Click a row to unfold its notes — a well that grows with what you write, saves
+as you type, and leaves a small mark on the row so you can see which tasks are
+carrying one. A finished row's drawer also holds **Edit**, for fixing a title,
+an estimate, an actual, or the day it landed on.
+
+![Notes drawer](assets/screenshots/today-notes.png)
+
+Finishing a task pays out: the row lands lit, the focused number kicks and rolls
+up, and a burst of bars comes off it — green and bigger when you beat your own
+estimate. Passing the ghost sets off its own. Sound is a toggle in Settings, and
+every animation respects Reduce Motion.
 
 Up next and Done today sit side by side at full width, and stack when you pull
 the window in to half a screen.

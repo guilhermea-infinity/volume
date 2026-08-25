@@ -5,6 +5,8 @@ enum Theme {
     static var isRendering = false
     /// Set by the renderer to freeze a completion burst mid-flight for review.
     static var renderBurstAt: Date?
+    /// Set by the renderer to open the first row's notes drawer.
+    static var renderNotesOpen = false
     /// Resolved appearance, set by RootView before the tree evaluates.
     static var mode: ColorScheme = .dark
     private static var dark: Bool { mode == .dark }

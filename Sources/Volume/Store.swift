@@ -17,6 +17,7 @@ struct Entry: Identifiable, Hashable {
     var createdAt: Date
     var completedAt: Date?
     var tag: String?
+    var notes: String?
     /// nil for hand-logged entries; "calendar" while the sync owns the row.
     var source: String?
 
@@ -104,6 +105,7 @@ final class Store: ObservableObject {
         exec("ALTER TABLE entries ADD COLUMN source TEXT")
         exec("ALTER TABLE entries ADD COLUMN external_id TEXT")
         exec("ALTER TABLE entries ADD COLUMN tag TEXT")
+        exec("ALTER TABLE entries ADD COLUMN notes TEXT")
         exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_external ON entries(external_id) WHERE external_id IS NOT NULL")
     }
 
@@ -122,7 +124,7 @@ final class Store: ObservableObject {
     private func load() {
         var out: [Entry] = []
         var stmt: OpaquePointer?
-        let sql = "SELECT id, kind, title, estimate_min, actual_min, created_at, completed_at, tag, source FROM entries ORDER BY created_at ASC, id ASC"
+        let sql = "SELECT id, kind, title, estimate_min, actual_min, created_at, completed_at, tag, source, notes FROM entries ORDER BY created_at ASC, id ASC"
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK, let st = stmt {
             while sqlite3_step(st) == SQLITE_ROW {
                 let id = sqlite3_column_int64(st, 0)
@@ -136,9 +138,10 @@ final class Store: ObservableObject {
                     : Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(st, 6)))
                 let tag = sqlite3_column_text(st, 7).map { String(cString: $0) }
                 let source = sqlite3_column_text(st, 8).map { String(cString: $0) }
+                let notes = sqlite3_column_text(st, 9).map { String(cString: $0) }
                 out.append(Entry(id: id, kind: kind, title: title, estimateMin: est,
                                  actualMin: act, createdAt: created, completedAt: completed,
-                                 tag: tag, source: source))
+                                 tag: tag, notes: notes, source: source))
             }
             sqlite3_finalize(st)
         }
@@ -242,6 +245,21 @@ final class Store: ObservableObject {
 
     private func bindInt64(_ st: OpaquePointer, _ idx: Int32, _ value: Int64?) {
         if let value { sqlite3_bind_int64(st, idx, value) } else { sqlite3_bind_null(st, idx) }
+    }
+
+    /// Notes save as you type, so nothing here reloads the whole table — the
+    /// row is patched in place and the open editor keeps its cursor.
+    func setNotes(_ notes: String, for id: Int64) {
+        let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value: String? = trimmed.isEmpty ? nil : trimmed
+        run("UPDATE entries SET notes = ? WHERE id = ?") { st in
+            if let value { sqlite3_bind_text(st, 1, value, -1, SQLITE_TRANSIENT) }
+            else { sqlite3_bind_null(st, 1) }
+            sqlite3_bind_int64(st, 2, id)
+        }
+        if let i = entries.firstIndex(where: { $0.id == id }), entries[i].notes != value {
+            entries[i].notes = value
+        }
     }
 
     func delete(_ id: Int64) {

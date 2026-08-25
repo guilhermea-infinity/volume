@@ -127,6 +127,7 @@ struct DayDetail: View {
     @EnvironmentObject var store: Store
     let day: Date
     @State private var editing: Entry?
+    @State private var expanded: Int64?
 
     var body: some View {
         let interval = Stats.dayInterval(day)
@@ -153,7 +154,12 @@ struct DayDetail: View {
             MaybeScroll {
                 LazyVStack(spacing: 8) {
                     ForEach(items) { e in
-                        DoneRow(entry: e) { editing = e }
+                        DoneRow(entry: e, isOpen: expanded == e.id,
+                                onToggle: {
+                                    withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                                        expanded = expanded == e.id ? nil : e.id
+                                    }
+                                }) { editing = e }
                     }
                 }
                 .padding(.horizontal, 20)
