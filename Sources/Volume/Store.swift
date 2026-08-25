@@ -16,6 +16,7 @@ struct Entry: Identifiable, Hashable {
     var actualMin: Int?
     var createdAt: Date
     var completedAt: Date?
+    var tag: String?
 
     var isDone: Bool { completedAt != nil }
 }
@@ -35,6 +36,41 @@ final class Store: ObservableObject {
     }
 
     func reload() { load() }
+
+    /// Silent classification: runs off the critical path, writes tags for
+    /// completed tasks that have none. Never surfaces at entry time.
+    func tagPending() {
+        let pending = entries.filter { $0.kind == .task && $0.isDone && $0.tag == nil }
+        guard !pending.isEmpty else { return }
+        Task { @MainActor in
+            for e in pending.prefix(50) {
+                if let tag = await Tagger.tagAsync(e.title) {
+                    self.setTag(tag.rawValue, for: e.id)
+                }
+            }
+            self.load()
+        }
+    }
+
+    /// Blocking variant for the headless renderer (lexicon backend only).
+    func tagPendingSync() {
+        for e in entries where e.kind == .task && e.isDone && e.tag == nil {
+            if let tag = Tagger.tag(e.title) { setTag(tag.rawValue, for: e.id) }
+        }
+        load()
+    }
+
+    private func setTag(_ tag: String, for id: Int64) {
+        run("UPDATE entries SET tag = ? WHERE id = ?") { st in
+            sqlite3_bind_text(st, 1, tag, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_int64(st, 2, id)
+        }
+    }
+
+    func clearAllTags() {
+        run("UPDATE entries SET tag = NULL")
+        load()
+    }
 
     private func open() {
         let path: String
@@ -65,6 +101,7 @@ final class Store: ObservableObject {
         // Migrations for DBs created before calendar sync (errors are no-ops when the column exists)
         exec("ALTER TABLE entries ADD COLUMN source TEXT")
         exec("ALTER TABLE entries ADD COLUMN external_id TEXT")
+        exec("ALTER TABLE entries ADD COLUMN tag TEXT")
         exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_external ON entries(external_id) WHERE external_id IS NOT NULL")
     }
 
@@ -83,7 +120,7 @@ final class Store: ObservableObject {
     private func load() {
         var out: [Entry] = []
         var stmt: OpaquePointer?
-        let sql = "SELECT id, kind, title, estimate_min, actual_min, created_at, completed_at FROM entries ORDER BY created_at ASC, id ASC"
+        let sql = "SELECT id, kind, title, estimate_min, actual_min, created_at, completed_at, tag FROM entries ORDER BY created_at ASC, id ASC"
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK, let st = stmt {
             while sqlite3_step(st) == SQLITE_ROW {
                 let id = sqlite3_column_int64(st, 0)
@@ -95,8 +132,10 @@ final class Store: ObservableObject {
                 let completed = sqlite3_column_type(st, 6) == SQLITE_NULL
                     ? nil
                     : Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(st, 6)))
+                let tag = sqlite3_column_text(st, 7).map { String(cString: $0) }
                 out.append(Entry(id: id, kind: kind, title: title, estimateMin: est,
-                                 actualMin: act, createdAt: created, completedAt: completed))
+                                 actualMin: act, createdAt: created, completedAt: completed,
+                                 tag: tag))
             }
             sqlite3_finalize(st)
         }
@@ -121,6 +160,7 @@ final class Store: ObservableObject {
             sqlite3_bind_int64(st, 3, id)
         }
         load()
+        tagPending()
     }
 
     func addRetro(title: String, estimateMin: Int, actualMin: Int, at date: Date) {
@@ -133,6 +173,7 @@ final class Store: ObservableObject {
             sqlite3_bind_int64(st, 5, ts)
         }
         load()
+        tagPending()
     }
 
     func addCall(title: String, minutes: Int, at date: Date) {

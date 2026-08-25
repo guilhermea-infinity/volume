@@ -25,6 +25,7 @@ final class AppSettings: ObservableObject {
 
 struct SettingsSheet: View {
     @EnvironmentObject var settings: AppSettings
+    @EnvironmentObject var store: Store
     @ObservedObject var sync = CalendarSync.shared
     @Environment(\.dismiss) private var dismiss
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -71,6 +72,21 @@ struct SettingsSheet: View {
                     GhostButton(title: "Sync now") {
                         Task { @MainActor in await CalendarSync.shared.syncNow() }
                     }
+                }
+            }
+
+            // Auto-tagging
+            VStack(alignment: .leading, spacing: 6) {
+                Eyebrow(text: "Auto-tagging", color: Theme.faint, size: 13)
+                Text(Tagger.usingAppleModel
+                     ? "Apple on-device model — private, offline."
+                     : "Local lexicon — private, offline, instant. Build against the macOS 26 SDK to switch to Apple's on-device model.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Theme.dim)
+                    .fixedSize(horizontal: false, vertical: true)
+                GhostButton(title: "Re-tag everything") {
+                    store.clearAllTags()
+                    store.tagPending()
                 }
             }
 

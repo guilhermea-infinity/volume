@@ -16,6 +16,7 @@ struct VolumeApp: App {
         _store = StateObject(wrappedValue: s)
         QuickAdd.shared.configure(store: s)
         CalendarSync.shared.configure(store: s)
+        s.tagPending()
     }
 
     var body: some Scene {
@@ -36,6 +37,7 @@ enum AppTab: String, CaseIterable {
 }
 
 struct RootView: View {
+    @EnvironmentObject var store: Store
     @State private var tab: AppTab
     @State private var showSettings = false
     @StateObject private var settings = AppSettings()
@@ -72,7 +74,7 @@ struct RootView: View {
         .background(Theme.bg.ignoresSafeArea())
         .preferredColorScheme(settings.appearance == "system" ? nil : scheme)
         .tint(Theme.accent)
-        .sheet(isPresented: $showSettings) { SettingsSheet().environmentObject(settings) }
+        .sheet(isPresented: $showSettings) { SettingsSheet().environmentObject(settings).environmentObject(store) }
         .environmentObject(settings)
         .onAppear { applyAppAppearance(scheme) }
         .onChange(of: settings.appearance) { _, _ in applyAppAppearance(resolvedScheme) }

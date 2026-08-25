@@ -106,6 +106,26 @@ struct WeekView: View {
                          valueColor: callsThis > 0 ? Theme.call : Theme.text)
                 }
 
+                // Where the focused time went
+                let byTag = Stats.minutesByTag(e, in: thisWeek)
+                if !byTag.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Eyebrow(text: "Where the time went")
+                            Spacer()
+                            Text("vs same point last week")
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(Theme.faint)
+                        }
+                        // Compare against last week at this same point, not the full week
+                        TagBreakdown(items: byTag,
+                                     lastWeek: Stats.minutesByTag(e, in: DateInterval(start: lastWeek.start, end: paceEnd)))
+                    }
+                    .padding(20)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .card()
+                }
+
                 // Daily chart
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
@@ -188,6 +208,58 @@ struct WeekView: View {
             [DayBar(id: "t\(i)", day: Stats.dayLabels[i], series: "This week", minutes: perThis[i]),
              DayBar(id: "l\(i)", day: Stats.dayLabels[i], series: "Last week", minutes: perLast[i])]
         }
+    }
+}
+
+struct TagBreakdown: View {
+    let items: [(Tag, Int)]
+    let lastWeek: [(Tag, Int)]
+
+    var body: some View {
+        let total = max(1, items.reduce(0) { $0 + $1.1 })
+        VStack(alignment: .leading, spacing: 12) {
+            // One stacked bar: the shape of your week at a glance
+            GeometryReader { geo in
+                HStack(spacing: 2) {
+                    ForEach(items, id: \.0) { tag, mins in
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color(hex: tag.hex))
+                            .frame(width: max(3, geo.size.width * Double(mins) / Double(total)))
+                    }
+                }
+            }
+            .frame(height: 12)
+
+            VStack(spacing: 7) {
+                ForEach(items, id: \.0) { tag, mins in
+                    let prev = lastWeek.first { $0.0 == tag }?.1 ?? 0
+                    let pct = Int((100.0 * Double(mins) / Double(total)).rounded())
+                    HStack(spacing: 8) {
+                        Circle().fill(Color(hex: tag.hex)).frame(width: 7, height: 7)
+                        Text(tag.rawValue)
+                            .font(.system(size: 12))
+                            .foregroundStyle(Theme.dim)
+                        Spacer()
+                        Text("\(pct)%")
+                            .font(Theme.mono(10, .medium))
+                            .foregroundStyle(Theme.faint)
+                            .frame(width: 34, alignment: .trailing)
+                        Text(TimeParse.format(mins))
+                            .font(Theme.mono(11))
+                            .foregroundStyle(Theme.text)
+                            .frame(width: 62, alignment: .trailing)
+                        Text(prev > 0 ? deltaLabel(mins - prev) : "new")
+                            .font(Theme.mono(10, .medium))
+                            .foregroundStyle(prev > 0 ? (mins >= prev ? Theme.good : Theme.faint) : Theme.faint)
+                            .frame(width: 62, alignment: .trailing)
+                    }
+                }
+            }
+        }
+    }
+
+    private func deltaLabel(_ delta: Int) -> String {
+        delta == 0 ? "same" : (delta > 0 ? "+" : "−") + TimeParse.format(abs(delta))
     }
 }
 

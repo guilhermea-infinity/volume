@@ -54,6 +54,17 @@ enum Stats {
         return out
     }
 
+    /// Focused minutes per tag in the interval, biggest first. Untagged work
+    /// is omitted rather than lumped into a misleading bucket.
+    static func minutesByTag(_ entries: [Entry], in interval: DateInterval) -> [(Tag, Int)] {
+        var totals: [Tag: Int] = [:]
+        for e in completed(entries, kind: .task, in: interval) {
+            guard let raw = e.tag, let tag = Tag(rawValue: raw) else { continue }
+            totals[tag, default: 0] += e.actualMin ?? 0
+        }
+        return totals.sorted { $0.value > $1.value }.map { ($0.key, $0.value) }
+    }
+
     static func dayInterval(_ day: Date) -> DateInterval {
         let start = calendar.startOfDay(for: day)
         return DateInterval(start: start, duration: 86400)

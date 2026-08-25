@@ -44,8 +44,22 @@ Add your Google/work account in System Settings → Internet Accounts with
 Calendars enabled, grant access on first launch, done. Calls are tracked but
 excluded from the focused score: the point is to watch that share shrink.
 
+**Silent auto-tagging**: finished tasks are classified locally — Analysis,
+Creative, Campaign, Comms, Admin — and the Week view gains a *Where the time
+went* breakdown you never had to maintain. Nothing is asked at entry time, and
+a task the classifier isn't confident about stays untagged rather than wrong.
+
+Two backends, picked automatically:
+
+| Backend | When | Notes |
+|---|---|---|
+| Local lexicon + sentence embeddings | Always | Instant, offline, zero dependencies. Ships with `NaturalLanguage`. |
+| Apple on-device language model | Built against the macOS 26 SDK | Compiled in via `#if canImport(FoundationModels)`. Install Xcode 26 or its Command Line Tools and rebuild — it activates itself. |
+
+Neither sends anything anywhere.
+
 **Settings** (⚙): dark / light / system appearance, calendar sync toggle +
-status, start at login.
+status, auto-tagging backend + re-tag, start at login.
 
 ![Light mode](assets/screenshots/week-light.png)
 

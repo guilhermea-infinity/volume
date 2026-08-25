@@ -9,6 +9,7 @@ enum Renderer {
         let light = ProcessInfo.processInfo.environment["VOLUME_RENDER_APPEARANCE"] == "light"
         Theme.mode = light ? .light : .dark
         let store = Store()
+        store.tagPendingSync()
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         for tab in AppTab.allCases {
             let content = RootView(tab: tab)
