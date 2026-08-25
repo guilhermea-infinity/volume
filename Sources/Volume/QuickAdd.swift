@@ -12,7 +12,8 @@ final class QuickAdd: NSObject, NSWindowDelegate {
     private weak var store: Store?
     private var hotKeyRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?
-    private var keyMonitor: Any?
+    /// Set by RootView so Tab can reopen the window after it has been closed.
+    static var openMainWindow: (() -> Void)?
 
     func configure(store: Store) {
         self.store = store
@@ -71,30 +72,31 @@ final class QuickAdd: NSObject, NSWindowDelegate {
                                      y: f.minY + f.height * 0.68))
         }
 
+        // Tab = open the full app. Intercepted in the panel's own sendEvent:
+        // a non-activating panel in a background app does not reliably reach
+        // NSApp-level monitors, and the field editor eats Tab for focus moves.
+        p.onTab = { [weak self] in self?.openMainApp() }
+
         panel = p
         p.makeKeyAndOrderFront(nil)
-
-        // Tab = open the full app
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, let panel = self.panel, event.window === panel else { return event }
-            if event.keyCode == 48 { // tab
-                MainActor.assumeIsolated { self.openMainApp() }
-                return nil
-            }
-            return event
-        }
     }
 
     func openMainApp() {
         close()
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        if let win = NSApp.windows.first(where: { !($0 is KeyablePanel) && $0.styleMask.contains(.titled) }) {
+        let existing = NSApp.windows.first {
+            !($0 is KeyablePanel) && $0.styleMask.contains(.titled) && $0.canBecomeMain
+        }
+        if let win = existing {
             win.makeKeyAndOrderFront(nil)
+        } else {
+            // Window was closed — ask SwiftUI for a fresh one.
+            QuickAdd.openMainWindow?()
         }
     }
 
     func close() {
-        if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil }
         panel?.orderOut(nil)
         panel = nil
     }
@@ -106,8 +108,20 @@ final class QuickAdd: NSObject, NSWindowDelegate {
 
 final class KeyablePanel: NSPanel {
     var onCancel: (() -> Void)?
+    var onTab: (() -> Void)?
+
     override var canBecomeKey: Bool { true }
     override func cancelOperation(_ sender: Any?) { onCancel?() }
+
+    /// Every event routed to this window passes here, ahead of the responder
+    /// chain and the text field's editor — so Tab is ours to claim.
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown, event.keyCode == 48, let onTab {   // 48 = tab
+            onTab()
+            return
+        }
+        super.sendEvent(event)
+    }
 }
 
 struct QuickAddView: View {

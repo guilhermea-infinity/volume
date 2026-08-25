@@ -20,7 +20,7 @@ struct VolumeApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: "main") {
             RootView()
                 .environmentObject(store)
                 .frame(minWidth: 980, minHeight: 640)
@@ -42,6 +42,7 @@ struct RootView: View {
     @State private var showSettings = false
     @StateObject private var settings = AppSettings()
     @Environment(\.colorScheme) private var systemScheme
+    @Environment(\.openWindow) private var openWindow
 
     init(tab: AppTab = .today) {
         _tab = State(initialValue: tab)
@@ -76,7 +77,10 @@ struct RootView: View {
         .tint(Theme.accent)
         .sheet(isPresented: $showSettings) { SettingsSheet().environmentObject(settings).environmentObject(store) }
         .environmentObject(settings)
-        .onAppear { applyAppAppearance(scheme) }
+        .onAppear {
+            applyAppAppearance(scheme)
+            QuickAdd.openMainWindow = { openWindow(id: "main") }
+        }
         .onChange(of: settings.appearance) { _, _ in applyAppAppearance(resolvedScheme) }
     }
 
