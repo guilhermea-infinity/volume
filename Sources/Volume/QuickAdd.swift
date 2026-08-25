@@ -40,9 +40,10 @@ final class QuickAdd: NSObject, NSWindowDelegate {
         if panel != nil { close() } else { show() }
     }
 
-    func show() {
+    func show(prefill: String = "") {
         guard let store, panel == nil else { return }
         let view = QuickAddView(
+            initialText: prefill,
             onAdd: { [weak self] kind, title, minutes in
                 switch kind {
                 case .task: store.addPlanned(title: title, estimateMin: minutes)
@@ -132,7 +133,6 @@ struct QuickAddView: View {
     let onCancel: () -> Void
 
     @State private var text: String
-    @FocusState private var focused: Bool
 
     init(initialText: String = "", onAdd: @escaping (Kind, String, Int) -> Void, onCancel: @escaping () -> Void) {
         self.onAdd = onAdd
@@ -140,25 +140,24 @@ struct QuickAddView: View {
         _text = State(initialValue: initialText)
     }
 
-    private var parsed: (kind: Kind, title: String, minutes: Int)? { Self.parse(text) }
+    private var line: QuickAddLine { QuickAddParser.read(text) }
 
     var body: some View {
+        let parsed = line
         HStack(spacing: 12) {
             BarsGlyph()
             if Theme.isRendering {
-                Text(text.isEmpty ? "task + time" : text)
+                Text(text.isEmpty
+                     ? AttributedString("task + time")
+                     : AttributedString(QuickAddSyntax.attributed(text)))
                     .font(.system(size: 19, weight: .medium))
-                    .foregroundStyle(Theme.text)
+                    .foregroundStyle(text.isEmpty ? Theme.faint : Theme.text)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                TextField("task + time", text: $text)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 19, weight: .medium))
-                    .foregroundStyle(Theme.text)
-                    .focused($focused)
-                    .onSubmit { submit() }
+                HighlightedField(text: $text, onSubmit: submit, onCancel: onCancel)
+                    .frame(maxWidth: .infinity)
             }
-            if let p = parsed {
+            if let p = parsed.result {
                 Chip(text: TimeParse.format(p.minutes),
                      color: p.kind == .call ? Theme.call : Theme.accent)
             }
@@ -169,38 +168,95 @@ struct QuickAddView: View {
         .background(Theme.bg, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.hairline))
         .environment(\.colorScheme, Theme.mode)
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { focused = true }
-        }
         .onExitCommand { onCancel() }
     }
 
     private func submit() {
-        guard let p = parsed else { return }
+        guard let p = line.result else { return }
         onAdd(p.kind, p.title, p.minutes)
     }
 
+    static func parse(_ raw: String) -> (kind: Kind, title: String, minutes: Int)? {
+        QuickAddParser.read(raw).result
+    }
+}
+
+/// What the parser makes of one line — including where it found the parts, so
+/// the field can color exactly the runs it is going to act on.
+struct QuickAddLine {
+    var kind: Kind = .task
+    var title = ""
+    var minutes: Int?
+    /// The "call with" that turns this into a meeting.
+    var openerRange: NSRange?
+    /// The duration lifted off the end.
+    var durationRange: NSRange?
+
+    var accentRanges: [NSRange] { [openerRange, durationRange].compactMap { $0 } }
+
+    var result: (kind: Kind, title: String, minutes: Int)? {
+        guard let minutes, !title.isEmpty else { return nil }
+        return (kind, title, minutes)
+    }
+}
+
+enum QuickAddParser {
     /// A line that opens with "call with" (or the obvious variants) is a
     /// meeting: it lands as call time, already done, instead of an estimate
     /// waiting in Up next.
-    private static let callOpeners = ["call with", "call w/", "meeting with", "meeting w/"]
+    static let callOpeners = ["call with", "call w/", "meeting with", "meeting w/"]
 
     /// "review creatives 1h 30m" → (.task, "review creatives", 90). Tries the
     /// last two tokens as a duration first, then the last one.
-    static func parse(_ raw: String) -> (kind: Kind, title: String, minutes: Int)? {
-        let tokens = raw.split(whereSeparator: \.isWhitespace).map(String.init)
-        guard tokens.count >= 2 else { return nil }
-        let opener = tokens.joined(separator: " ").lowercased()
-        let kind: Kind = callOpeners.contains(where: opener.hasPrefix) ? .call : .task
-        for take in [2, 1] where tokens.count > take {
-            let tail = Array(tokens.suffix(take))
-            if take == 2, !validTwoTokenTail(tail[0], tail[1]) { continue }
-            if let m = TimeParse.minutes(from: tail.joined(separator: " ")) {
-                let title = tokens.dropLast(take).joined(separator: " ")
-                if !title.isEmpty { return (kind, title, m) }
-            }
+    static func read(_ raw: String) -> QuickAddLine {
+        var line = QuickAddLine()
+
+        let indent = raw.prefix { $0.isWhitespace }
+        let body = String(raw.dropFirst(indent.count)).lowercased()
+        for opener in callOpeners where body.hasPrefix(opener) {
+            line.kind = .call
+            line.openerRange = NSRange(location: indent.utf16.count, length: opener.utf16.count)
+            break
         }
-        return nil
+
+        let words = tokens(raw)
+        guard words.count >= 2 else { return line }
+        for take in [2, 1] where words.count > take {
+            let tail = Array(words.suffix(take))
+            if take == 2, !validTwoTokenTail(tail[0].text, tail[1].text) { continue }
+            guard let m = TimeParse.minutes(from: tail.map(\.text).joined(separator: " ")) else { continue }
+            let title = words.dropLast(take).map(\.text).joined(separator: " ")
+            if title.isEmpty { continue }
+            line.title = title
+            line.minutes = m
+            let start = tail[0].range.location
+            line.durationRange = NSRange(location: start,
+                                         length: tail[take - 1].range.upperBound - start)
+            break
+        }
+        return line
+    }
+
+    /// Words with their place in the line, so a run can be colored where it sits.
+    private static func tokens(_ raw: String) -> [(text: String, range: NSRange)] {
+        var out: [(String, NSRange)] = []
+        var start: String.Index?
+        var i = raw.startIndex
+        while i < raw.endIndex {
+            if raw[i].isWhitespace {
+                if let s = start {
+                    out.append((String(raw[s..<i]), NSRange(s..<i, in: raw)))
+                    start = nil
+                }
+            } else if start == nil {
+                start = i
+            }
+            i = raw.index(after: i)
+        }
+        if let s = start {
+            out.append((String(raw[s...]), NSRange(s..<raw.endIndex, in: raw)))
+        }
+        return out
     }
 
     /// "1h" + "30m" or "2" + "hours" are one duration; "4" + "30m" is not —
@@ -210,5 +266,117 @@ struct QuickAddView: View {
         let aHasUnit = a.contains(where: \.isLetter)
         let bHasDigit = b.contains(where: \.isNumber)
         return bIsUnitWord || (aHasUnit && bHasDigit)
+    }
+}
+
+/// One place that decides how a line looks, used by the live field and by the
+/// headless renderer alike.
+enum QuickAddSyntax {
+    static let font = NSFont.systemFont(ofSize: 19, weight: .medium)
+
+    static var base: [NSAttributedString.Key: Any] {
+        [.font: font, .foregroundColor: NSColor(Theme.text)]
+    }
+
+    static func attributed(_ raw: String) -> NSAttributedString {
+        let s = NSMutableAttributedString(string: raw, attributes: base)
+        apply(to: s)
+        return s
+    }
+
+    static func apply(to storage: NSMutableAttributedString) {
+        let all = NSRange(location: 0, length: storage.length)
+        storage.setAttributes(base, range: all)
+        for r in QuickAddParser.read(storage.string).accentRanges where r.upperBound <= storage.length {
+            storage.addAttribute(.foregroundColor, value: NSColor(Theme.accent), range: r)
+        }
+    }
+}
+
+/// SwiftUI's TextField paints one color at a time, so the recognised parts of
+/// the line — the opener, the duration — need an AppKit field underneath.
+struct HighlightedField: NSViewRepresentable {
+    @Binding var text: String
+    var onSubmit: () -> Void
+    var onCancel: () -> Void
+
+    func makeNSView(context: Context) -> NSTextField {
+        let field = NSTextField()
+        field.isBordered = false
+        field.drawsBackground = false
+        field.focusRingType = .none
+        field.font = QuickAddSyntax.font
+        field.delegate = context.coordinator
+        field.cell?.usesSingleLineMode = true
+        field.cell?.wraps = false
+        field.cell?.isScrollable = true
+        // Without this the field editor flattens the attributed string back to
+        // one colour the moment editing starts.
+        field.allowsEditingTextAttributes = true
+        field.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        field.placeholderAttributedString = NSAttributedString(
+            string: "task + time",
+            attributes: [.font: QuickAddSyntax.font, .foregroundColor: NSColor(Theme.faint)])
+        field.attributedStringValue = QuickAddSyntax.attributed(text)
+        return field
+    }
+
+    func updateNSView(_ field: NSTextField, context: Context) {
+        context.coordinator.parent = self
+        if field.stringValue != text {
+            field.attributedStringValue = QuickAddSyntax.attributed(text)
+        }
+        if !context.coordinator.tookFocus {
+            context.coordinator.tookFocus = true
+            DispatchQueue.main.async {
+                field.window?.makeFirstResponder(field)
+                // Taking first responder selects the whole line; put the caret
+                // at the end so you carry on typing instead of overwriting.
+                let end = (field.stringValue as NSString).length
+                field.currentEditor()?.selectedRange = NSRange(location: end, length: 0)
+                context.coordinator.recolor(field)
+            }
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: HighlightedField
+        var tookFocus = false
+
+        init(_ parent: HighlightedField) { self.parent = parent }
+
+        func controlTextDidChange(_ note: Notification) {
+            guard let field = note.object as? NSTextField else { return }
+            parent.text = field.stringValue
+            recolor(field)
+        }
+
+        /// Recolors the field editor in place: replacing the whole string would
+        /// drop the caret to the end on every keystroke.
+        func recolor(_ field: NSTextField) {
+            guard let editor = field.currentEditor() as? NSTextView,
+                  let storage = editor.textStorage else { return }
+            let selection = editor.selectedRange()
+            editor.insertionPointColor = NSColor(Theme.accent)
+            QuickAddSyntax.apply(to: storage)
+            editor.typingAttributes = QuickAddSyntax.base
+            editor.setSelectedRange(selection)
+        }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            switch selector {
+            case #selector(NSResponder.insertNewline(_:)):
+                parent.onSubmit()
+                return true
+            case #selector(NSResponder.cancelOperation(_:)):
+                parent.onCancel()
+                return true
+            default:
+                return false
+            }
+        }
     }
 }

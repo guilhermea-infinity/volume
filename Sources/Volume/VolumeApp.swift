@@ -25,6 +25,16 @@ struct VolumeApp: App {
         let s = Store()
         _store = StateObject(wrappedValue: s)
         QuickAdd.shared.configure(store: s)
+        // Dev hook: open the quick-add panel straight away, prefilled, so its
+        // syntax colouring can be reviewed without reaching for the hotkey.
+        if let i = CommandLine.arguments.firstIndex(of: "--quickadd") {
+            let line = CommandLine.arguments.indices.contains(i + 1) ? CommandLine.arguments[i + 1] : ""
+            // After the main window has settled, or it takes key back and the
+            // panel closes itself on resign.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                QuickAdd.shared.show(prefill: line)
+            }
+        }
         CalendarSync.shared.configure(store: s)
         s.tagPending()
     }

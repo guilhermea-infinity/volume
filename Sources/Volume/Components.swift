@@ -428,7 +428,7 @@ struct PlannedRow: View {
                     .lineLimit(1)
                 NoteMark(hasNotes: !isOpen && entry.notes?.isEmpty == false)
                 Spacer(minLength: 8)
-                Chip(text: "est \(TimeParse.format(entry.estimateMin ?? 0))", color: Theme.ghost)
+                Chip(text: TimeParse.format(entry.estimateMin ?? 0), color: Theme.ghost)
                 AccentButton(title: "Done", action: onDone)
             }
         } drawer: {
@@ -474,7 +474,7 @@ struct DoneRow: View {
                 NoteMark(hasNotes: !isOpen && entry.notes?.isEmpty == false)
                 Spacer(minLength: 8)
                 if entry.kind == .task, let est = entry.estimateMin {
-                    Chip(text: "est \(TimeParse.format(est))", color: Theme.ghost)
+                    Chip(text: TimeParse.format(est), color: Theme.ghost)
                 }
                 if let act = entry.actualMin {
                     Chip(text: TimeParse.format(act), color: resultColor)

@@ -64,9 +64,11 @@ Type `review creatives 30m`, Enter. Tab opens the full app.
 
 ![Quick add](assets/screenshots/quickadd.png)
 
-Open the line with `call with …` (or `meeting with …`) and it logs as call time
-already done, rather than an estimate waiting in Up next. The chip turns blue
-so you can see which one you're about to get.
+The field colors what the parser recognised — the opener that makes it a
+meeting, the duration it lifts off the end — so you can see the command land as
+you type it. Open the line with `call with …` (or `meeting with …`) and it logs
+as call time already done, rather than an estimate waiting in Up next; the chip
+turns blue so you can see which one you're about to get.
 
 ![Quick add, meeting](assets/screenshots/quickadd-call.png)
 
