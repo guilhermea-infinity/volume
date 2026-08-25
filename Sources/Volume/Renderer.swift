@@ -26,5 +26,20 @@ enum Renderer {
             try? png.write(to: url)
             print("wrote \(url.path)")
         }
+
+        let quickAdd = QuickAddView(initialText: "review IDS creatives batch 4 30m",
+                                    onAdd: { _, _ in }, onCancel: {})
+            .environment(\.colorScheme, .dark)
+            .padding(30)
+            .background(Color.black.opacity(0.94))
+        let qr = ImageRenderer(content: quickAdd)
+        qr.scale = 2
+        if let img = qr.nsImage, let tiff = img.tiffRepresentation,
+           let rep = NSBitmapImageRep(data: tiff),
+           let png = rep.representation(using: .png, properties: [:]) {
+            let url = URL(fileURLWithPath: dir).appendingPathComponent("quickadd.png")
+            try? png.write(to: url)
+            print("wrote \(url.path)")
+        }
     }
 }

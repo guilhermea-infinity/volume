@@ -12,7 +12,9 @@ struct VolumeApp: App {
             Renderer.renderAll(to: dir)
             exit(0)
         }
-        _store = StateObject(wrappedValue: Store())
+        let s = Store()
+        _store = StateObject(wrappedValue: s)
+        QuickAdd.shared.configure(store: s)
     }
 
     var body: some Scene {
