@@ -27,7 +27,8 @@ no Gatekeeper quarantine to fight.
 
 - **Today** — quick-add a task with an estimate (`45m`, `1h30`, `1:30`, `90`
   all parse). Hit **Done** and it asks what it actually took: green badge =
-  within estimate, red = over. Log past work and ad-hoc calls too.
+  within estimate, red = over. Log past work and ad-hoc calls too. Click any
+  finished row to fix it — title, estimate, actual, or the day it landed on.
 - **Week** — focused minutes vs last week, with a **ghost**: a marker showing
   exactly where last-week-you was at this moment. Beat the week and the bar
   goes green. Tiles for tasks done, estimation accuracy, best day, call load.
@@ -42,6 +43,12 @@ the window in to half a screen.
 Type `review creatives 30m`, Enter. Tab opens the full app.
 
 ![Quick add](assets/screenshots/quickadd.png)
+
+Open the line with `call with …` (or `meeting with …`) and it logs as call time
+already done, rather than an estimate waiting in Up next. The chip turns blue
+so you can see which one you're about to get.
+
+![Quick add, meeting](assets/screenshots/quickadd-call.png)
 
 **Menu bar scoreboard**: the mark sits in the menu bar all day. Click it for
 today's focused time, tasks and calls without switching windows.
@@ -81,7 +88,10 @@ toggle + status, auto-tagging backend + re-tag, start at login.
 - Calendar-sourced entries reconcile on every sync (edits/deletions propagate);
   manually logged calls are never touched — don't log calendar meetings by
   hand or they'll double-count.
+- Calendar entries you edit by hand stop being replaced by the sync — the
+  calendar keeps owning every entry you leave alone.
 - Headless UI previews for development: `.build/debug/Volume --render <dir>`
-  with `VOLUME_DB` / `VOLUME_RENDER_APPEARANCE=light` env overrides.
+  with `VOLUME_DB` / `VOLUME_RENDER_APPEARANCE` / `VOLUME_RENDER_W` / `_H` env
+  overrides. `--parse "<line>"` checks the quick-add grammar.
 
 MIT licensed.

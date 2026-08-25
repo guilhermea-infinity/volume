@@ -51,10 +51,10 @@ struct MenuBarPanel: View {
             }
             HStack(alignment: .firstTextBaseline, spacing: 22) {
                 StatBlock(label: "Focused", value: TimeParse.format(focused),
-                          color: Theme.accent, size: 32)
-                StatBlock(label: "Tasks", value: "\(tasks)", size: 24)
+                          color: Theme.accent, size: 26)
+                StatBlock(label: "Tasks", value: "\(tasks)", size: 26)
                 StatBlock(label: "Calls", value: TimeParse.format(calls),
-                          color: calls > 0 ? Theme.call : Theme.dim, size: 24)
+                          color: calls > 0 ? Theme.call : Theme.dim, size: 26)
             }
         }
         .padding(16)

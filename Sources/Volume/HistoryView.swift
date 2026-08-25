@@ -126,6 +126,7 @@ struct DayRow: View {
 struct DayDetail: View {
     @EnvironmentObject var store: Store
     let day: Date
+    @State private var editing: Entry?
 
     var body: some View {
         let interval = Stats.dayInterval(day)
@@ -142,7 +143,7 @@ struct DayDetail: View {
                         color: Theme.faint, size: 14)
                 HStack(alignment: .firstTextBaseline, spacing: 26) {
                     StatBlock(label: "Focused", value: TimeParse.format(focused),
-                              color: Theme.accent, size: 34)
+                              color: Theme.accent)
                     StatBlock(label: "Tasks", value: "\(taskCount)")
                     StatBlock(label: "Calls", value: TimeParse.format(calls),
                               color: calls > 0 ? Theme.call : Theme.dim)
@@ -153,7 +154,7 @@ struct DayDetail: View {
             MaybeScroll {
                 LazyVStack(spacing: 8) {
                     ForEach(items) { e in
-                        DoneRow(entry: e)
+                        DoneRow(entry: e) { editing = e }
                     }
                 }
                 .padding(.horizontal, 20)
@@ -161,5 +162,6 @@ struct DayDetail: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .sheet(item: $editing) { EditSheet(entry: $0) }
     }
 }

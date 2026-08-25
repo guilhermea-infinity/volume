@@ -12,6 +12,16 @@ struct VolumeApp: App {
             Renderer.renderAll(to: dir)
             exit(0)
         }
+        // Dev hook for checking the quick-add grammar without opening the panel.
+        if let i = CommandLine.arguments.firstIndex(of: "--parse") {
+            let raw = CommandLine.arguments.indices.contains(i + 1) ? CommandLine.arguments[i + 1] : ""
+            if let p = QuickAddView.parse(raw) {
+                print("\(p.kind.rawValue)|\(p.title)|\(p.minutes)")
+            } else {
+                print("nil")
+            }
+            exit(0)
+        }
         let s = Store()
         _store = StateObject(wrappedValue: s)
         QuickAdd.shared.configure(store: s)

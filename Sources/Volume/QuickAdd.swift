@@ -43,8 +43,11 @@ final class QuickAdd: NSObject, NSWindowDelegate {
     func show() {
         guard let store, panel == nil else { return }
         let view = QuickAddView(
-            onAdd: { [weak self] title, est in
-                store.addPlanned(title: title, estimateMin: est)
+            onAdd: { [weak self] kind, title, minutes in
+                switch kind {
+                case .task: store.addPlanned(title: title, estimateMin: minutes)
+                case .call: store.addCall(title: title, minutes: minutes, at: .now)
+                }
                 self?.close()
             },
             onCancel: { [weak self] in self?.close() }
@@ -125,19 +128,19 @@ final class KeyablePanel: NSPanel {
 }
 
 struct QuickAddView: View {
-    let onAdd: (String, Int) -> Void
+    let onAdd: (Kind, String, Int) -> Void
     let onCancel: () -> Void
 
     @State private var text: String
     @FocusState private var focused: Bool
 
-    init(initialText: String = "", onAdd: @escaping (String, Int) -> Void, onCancel: @escaping () -> Void) {
+    init(initialText: String = "", onAdd: @escaping (Kind, String, Int) -> Void, onCancel: @escaping () -> Void) {
         self.onAdd = onAdd
         self.onCancel = onCancel
         _text = State(initialValue: initialText)
     }
 
-    private var parsed: (title: String, est: Int)? { Self.parse(text) }
+    private var parsed: (kind: Kind, title: String, minutes: Int)? { Self.parse(text) }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -156,7 +159,8 @@ struct QuickAddView: View {
                     .onSubmit { submit() }
             }
             if let p = parsed {
-                Chip(text: TimeParse.format(p.est), color: Theme.accent)
+                Chip(text: TimeParse.format(p.minutes),
+                     color: p.kind == .call ? Theme.call : Theme.accent)
             }
         }
         .padding(.horizontal, 16)
@@ -173,20 +177,27 @@ struct QuickAddView: View {
 
     private func submit() {
         guard let p = parsed else { return }
-        onAdd(p.title, p.est)
+        onAdd(p.kind, p.title, p.minutes)
     }
 
-    /// "review creatives 1h 30m" → ("review creatives", 90). Tries the last
-    /// two tokens as a duration first, then the last one.
-    static func parse(_ raw: String) -> (title: String, est: Int)? {
+    /// A line that opens with "call with" (or the obvious variants) is a
+    /// meeting: it lands as call time, already done, instead of an estimate
+    /// waiting in Up next.
+    private static let callOpeners = ["call with", "call w/", "meeting with", "meeting w/"]
+
+    /// "review creatives 1h 30m" → (.task, "review creatives", 90). Tries the
+    /// last two tokens as a duration first, then the last one.
+    static func parse(_ raw: String) -> (kind: Kind, title: String, minutes: Int)? {
         let tokens = raw.split(whereSeparator: \.isWhitespace).map(String.init)
         guard tokens.count >= 2 else { return nil }
+        let opener = tokens.joined(separator: " ").lowercased()
+        let kind: Kind = callOpeners.contains(where: opener.hasPrefix) ? .call : .task
         for take in [2, 1] where tokens.count > take {
             let tail = Array(tokens.suffix(take))
             if take == 2, !validTwoTokenTail(tail[0], tail[1]) { continue }
             if let m = TimeParse.minutes(from: tail.joined(separator: " ")) {
                 let title = tokens.dropLast(take).joined(separator: " ")
-                if !title.isEmpty { return (title, m) }
+                if !title.isEmpty { return (kind, title, m) }
             }
         }
         return nil

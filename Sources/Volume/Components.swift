@@ -146,7 +146,7 @@ struct StatBlock: View {
     let label: String
     let value: String
     var color: Color = Theme.text
-    var size: CGFloat = 26
+    var size: CGFloat = 30
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
@@ -213,6 +213,7 @@ struct PlannedRow: View {
 struct DoneRow: View {
     @EnvironmentObject var store: Store
     let entry: Entry
+    var onEdit: (() -> Void)? = nil
 
     private var resultColor: Color {
         if entry.kind == .call { return Theme.call }
@@ -250,7 +251,10 @@ struct DoneRow: View {
                 }
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture { onEdit?() }
         .contextMenu {
+            if onEdit != nil { Button("Edit") { onEdit?() } }
             Button("Delete", role: .destructive) { store.delete(entry.id) }
         }
     }
@@ -390,6 +394,82 @@ struct CallSheet: View {
         guard let m = durMin else { return }
         let t = title.trimmingCharacters(in: .whitespaces)
         store.addCall(title: t.isEmpty ? "Call" : t, minutes: m, at: date)
+        dismiss()
+    }
+}
+
+/// Fix a logged entry after the fact — wrong title, wrong actual, wrong day.
+struct EditSheet: View {
+    @EnvironmentObject var store: Store
+    @Environment(\.dismiss) private var dismiss
+    let entry: Entry
+
+    @State private var title: String
+    @State private var estimate: String
+    @State private var actual: String
+    @State private var when: Date
+    @FocusState private var focused: Bool
+
+    init(entry: Entry) {
+        self.entry = entry
+        _title = State(initialValue: entry.title)
+        _estimate = State(initialValue: entry.estimateMin.map { TimeParse.format($0) } ?? "")
+        _actual = State(initialValue: entry.actualMin.map { TimeParse.format($0) } ?? "")
+        _when = State(initialValue: entry.completedAt ?? entry.createdAt)
+    }
+
+    private var isCall: Bool { entry.kind == .call }
+    private var estMin: Int? { TimeParse.minutes(from: estimate) }
+    private var actMin: Int? { TimeParse.minutes(from: actual) }
+    private var valid: Bool {
+        !title.trimmingCharacters(in: .whitespaces).isEmpty
+            && actMin != nil
+            && (isCall || estMin != nil)
+    }
+
+    var body: some View {
+        SheetChrome(eyebrow: isCall ? "Edit call" : "Edit task") {
+            TextField("Title", text: $title)
+                .darkField(focused: focused)
+                .focused($focused)
+            HStack(spacing: 8) {
+                if !isCall {
+                    TextField("Estimate", text: $estimate).darkField()
+                }
+                TextField(isCall ? "Duration" : "Actual", text: $actual)
+                    .darkField()
+                    .onSubmit { save() }
+            }
+            DatePicker("When", selection: $when, in: ...Date.now)
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.dim)
+            if entry.source == "calendar" {
+                Text("Synced from your calendar. Saving takes this entry over — later calendar changes stop applying to it.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.faint)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack {
+                GhostButton(title: "Delete") {
+                    store.delete(entry.id)
+                    dismiss()
+                }
+                Spacer()
+                GhostButton(title: "Cancel") { dismiss() }
+                AccentButton(title: "Save", disabled: !valid) { save() }
+            }
+        }
+        .frame(width: 400)
+        .onAppear { focused = true }
+    }
+
+    private func save() {
+        guard valid, let act = actMin else { return }
+        store.update(entry.id,
+                     title: title.trimmingCharacters(in: .whitespaces),
+                     estimateMin: isCall ? nil : estMin,
+                     actualMin: act,
+                     completedAt: when)
         dismiss()
     }
 }

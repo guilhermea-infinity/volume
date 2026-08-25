@@ -48,19 +48,21 @@ enum Renderer {
             print("wrote \(url.path)")
         }
 
-        let quickAdd = QuickAddView(initialText: "review IDS creatives batch 4 30m",
-                                    onAdd: { _, _ in }, onCancel: {})
-            .environment(\.colorScheme, light ? .light : .dark)
-            .padding(30)
-            .background(light ? Color(hex: 0xE5E2D9) : Color.black.opacity(0.94))
-        let qr = ImageRenderer(content: quickAdd)
-        qr.scale = 2
-        if let img = qr.nsImage, let tiff = img.tiffRepresentation,
-           let rep = NSBitmapImageRep(data: tiff),
-           let png = rep.representation(using: .png, properties: [:]) {
-            let url = URL(fileURLWithPath: dir).appendingPathComponent("quickadd.png")
-            try? png.write(to: url)
-            print("wrote \(url.path)")
+        for (name, line) in [("quickadd", "review IDS creatives batch 4 30m"),
+                             ("quickadd-call", "call with Rafaela 30m")] {
+            let quickAdd = QuickAddView(initialText: line, onAdd: { _, _, _ in }, onCancel: {})
+                .environment(\.colorScheme, light ? .light : .dark)
+                .padding(30)
+                .background(light ? Color(hex: 0xE5E2D9) : Color.black.opacity(0.94))
+            let qr = ImageRenderer(content: quickAdd)
+            qr.scale = 2
+            if let img = qr.nsImage, let tiff = img.tiffRepresentation,
+               let rep = NSBitmapImageRep(data: tiff),
+               let png = rep.representation(using: .png, properties: [:]) {
+                let url = URL(fileURLWithPath: dir).appendingPathComponent("\(name).png")
+                try? png.write(to: url)
+                print("wrote \(url.path)")
+            }
         }
     }
 }

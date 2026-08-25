@@ -8,6 +8,7 @@ struct TodayView: View {
     @State private var completing: Entry?
     @State private var showRetro = false
     @State private var showCall = false
+    @State private var editing: Entry?
     @State private var now = Date.now
     @State private var laneWidth: CGFloat = 1000
 
@@ -39,7 +40,7 @@ struct TodayView: View {
                             color: Theme.faint, size: 14)
                     HStack(alignment: .firstTextBaseline, spacing: 26) {
                         StatBlock(label: "Focused", value: TimeParse.format(focusedToday),
-                                  color: Theme.accent, size: 40)
+                                  color: Theme.accent)
                         StatBlock(label: "Tasks", value: "\(tasksToday)")
                         StatBlock(label: "Calls", value: TimeParse.format(callsToday),
                                   color: callsToday > 0 ? Theme.call : Theme.dim)
@@ -112,6 +113,7 @@ struct TodayView: View {
             }
         }
         .sheet(item: $completing) { CompleteSheet(entry: $0) }
+        .sheet(item: $editing) { EditSheet(entry: $0) }
         .sheet(isPresented: $showRetro) { RetroSheet() }
         .sheet(isPresented: $showCall) { CallSheet() }
         .onAppear { focusedField = .title }
@@ -133,7 +135,7 @@ struct TodayView: View {
         Lane(title: "Done today", count: doneToday.count,
              empty: "Nothing yet. Finish one and log it.", scrolls: scrolls) {
             ForEach(doneToday) { e in
-                DoneRow(entry: e)
+                DoneRow(entry: e) { editing = e }
             }
         }
     }

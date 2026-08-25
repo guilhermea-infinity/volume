@@ -17,6 +17,8 @@ struct Entry: Identifiable, Hashable {
     var createdAt: Date
     var completedAt: Date?
     var tag: String?
+    /// nil for hand-logged entries; "calendar" while the sync owns the row.
+    var source: String?
 
     var isDone: Bool { completedAt != nil }
 }
@@ -120,7 +122,7 @@ final class Store: ObservableObject {
     private func load() {
         var out: [Entry] = []
         var stmt: OpaquePointer?
-        let sql = "SELECT id, kind, title, estimate_min, actual_min, created_at, completed_at, tag FROM entries ORDER BY created_at ASC, id ASC"
+        let sql = "SELECT id, kind, title, estimate_min, actual_min, created_at, completed_at, tag, source FROM entries ORDER BY created_at ASC, id ASC"
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK, let st = stmt {
             while sqlite3_step(st) == SQLITE_ROW {
                 let id = sqlite3_column_int64(st, 0)
@@ -133,9 +135,10 @@ final class Store: ObservableObject {
                     ? nil
                     : Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(st, 6)))
                 let tag = sqlite3_column_text(st, 7).map { String(cString: $0) }
+                let source = sqlite3_column_text(st, 8).map { String(cString: $0) }
                 out.append(Entry(id: id, kind: kind, title: title, estimateMin: est,
                                  actualMin: act, createdAt: created, completedAt: completed,
-                                 tag: tag))
+                                 tag: tag, source: source))
             }
             sqlite3_finalize(st)
         }
@@ -211,6 +214,34 @@ final class Store: ObservableObject {
             }
         }
         load()
+    }
+
+    /// Edit a logged entry. A calendar-sourced row becomes "calendar-edited":
+    /// the next sync no longer replaces it, and its external_id keeps that sync
+    /// from inserting the original back alongside it.
+    func update(_ id: Int64, title: String, estimateMin: Int?, actualMin: Int?, completedAt: Date?) {
+        run("""
+            UPDATE entries
+               SET title = ?, estimate_min = ?, actual_min = ?, completed_at = ?, tag = NULL,
+                   source = CASE WHEN source = 'calendar' THEN 'calendar-edited' ELSE source END
+             WHERE id = ?
+            """) { st in
+            sqlite3_bind_text(st, 1, title, -1, SQLITE_TRANSIENT)
+            bindInt(st, 2, estimateMin)
+            bindInt(st, 3, actualMin)
+            bindInt64(st, 4, completedAt.map { Int64($0.timeIntervalSince1970) })
+            sqlite3_bind_int64(st, 5, id)
+        }
+        load()
+        tagPending()
+    }
+
+    private func bindInt(_ st: OpaquePointer, _ idx: Int32, _ value: Int?) {
+        if let value { sqlite3_bind_int(st, idx, Int32(value)) } else { sqlite3_bind_null(st, idx) }
+    }
+
+    private func bindInt64(_ st: OpaquePointer, _ idx: Int32, _ value: Int64?) {
+        if let value { sqlite3_bind_int64(st, idx, value) } else { sqlite3_bind_null(st, idx) }
     }
 
     func delete(_ id: Int64) {
