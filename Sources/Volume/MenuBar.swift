@@ -50,10 +50,10 @@ struct MenuBarPanel: View {
                 IconButton(symbol: "arrow.up.forward") { QuickAdd.shared.openMainApp() }
             }
             HStack(alignment: .firstTextBaseline, spacing: 22) {
-                StatBlock(label: "Focused", value: TimeParse.format(focused),
+                StatBlock(label: "Focused", value: .minutes(focused),
                           color: Theme.accent, size: 26)
-                StatBlock(label: "Tasks", value: "\(tasks)", size: 26)
-                StatBlock(label: "Calls", value: TimeParse.format(calls),
+                StatBlock(label: "Tasks", value: .count(tasks), size: 26)
+                StatBlock(label: "Calls", value: .minutes(calls),
                           color: calls > 0 ? Theme.call : Theme.dim, size: 26)
             }
         }

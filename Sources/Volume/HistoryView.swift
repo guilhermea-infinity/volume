@@ -142,10 +142,9 @@ struct DayDetail: View {
                 Eyebrow(text: day.formatted(.dateTime.weekday(.wide).day().month(.wide)),
                         color: Theme.faint, size: 14)
                 HStack(alignment: .firstTextBaseline, spacing: 26) {
-                    StatBlock(label: "Focused", value: TimeParse.format(focused),
-                              color: Theme.accent)
-                    StatBlock(label: "Tasks", value: "\(taskCount)")
-                    StatBlock(label: "Calls", value: TimeParse.format(calls),
+                    StatBlock(label: "Focused", value: .minutes(focused), color: Theme.accent)
+                    StatBlock(label: "Tasks", value: .count(taskCount))
+                    StatBlock(label: "Calls", value: .minutes(calls),
                               color: calls > 0 ? Theme.call : Theme.dim)
                 }
             }

@@ -9,6 +9,11 @@ struct TodayView: View {
     @State private var showRetro = false
     @State private var showCall = false
     @State private var editing: Entry?
+    @State private var burstAt: Date?
+    @State private var burstTint = Theme.accent
+    @State private var burstCount = 18
+    @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var now = Date.now
     @State private var laneWidth: CGFloat = 1000
 
@@ -39,13 +44,29 @@ struct TodayView: View {
                     Eyebrow(text: now.formatted(.dateTime.weekday(.wide).day().month(.wide)),
                             color: Theme.faint, size: 14)
                     HStack(alignment: .firstTextBaseline, spacing: 26) {
-                        StatBlock(label: "Focused", value: TimeParse.format(focusedToday),
+                        StatBlock(label: "Focused", value: .minutes(focusedToday),
                                   color: Theme.accent)
-                        StatBlock(label: "Tasks", value: "\(tasksToday)")
-                        StatBlock(label: "Calls", value: TimeParse.format(callsToday),
+                            .scaleEffect(pulse ? 1.16 : 1, anchor: .bottomLeading)
+                            .shadow(color: Theme.accent.opacity(pulse ? 0.5 : 0), radius: 22)
+                            .overlay {
+                                if let at = burstAt ?? Theme.renderBurstAt {
+                                    BurstView(seed: UInt64(at.timeIntervalSince1970 * 1000),
+                                              tint: burstTint, start: at,
+                                              count: burstCount, drift: 110)
+                                        .frame(width: 520, height: 420)
+                                        .allowsHitTesting(false)
+                                }
+                            }
+                        StatBlock(label: "Tasks", value: .count(tasksToday))
+                        StatBlock(label: "Calls", value: .minutes(callsToday),
                                   color: callsToday > 0 ? Theme.call : Theme.dim)
                     }
-                    .animation(.spring(duration: 0.5), value: focusedToday)
+                    .onChange(of: focusedToday) { old, new in
+                        guard new > old else { return }
+                        let last = doneToday.first { $0.kind == .task }
+                        let beatEstimate = (last?.actualMin ?? 0) <= (last?.estimateMin ?? 0)
+                        celebrate(underEstimate: beatEstimate)
+                    }
                 }
                 Spacer()
                 HStack(spacing: 8) {
@@ -126,6 +147,9 @@ struct TodayView: View {
              empty: "Nothing planned. Add the first task above.", scrolls: scrolls) {
             ForEach(planned) { e in
                 PlannedRow(entry: e) { completing = e }
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.96).combined(with: .opacity),
+                        removal: .scale(scale: 0.88).combined(with: .opacity)))
             }
         }
     }
@@ -136,7 +160,27 @@ struct TodayView: View {
              empty: "Nothing yet. Finish one and log it.", scrolls: scrolls) {
             ForEach(doneToday) { e in
                 DoneRow(entry: e) { editing = e }
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.9).combined(with: .opacity),
+                        removal: .opacity))
             }
+        }
+    }
+
+    /// The reward: a click, a kick on the number, and a burst of bars off it.
+    /// Beating your own estimate earns the green, bigger one.
+    private func celebrate(underEstimate: Bool) {
+        Feedback.completed(underEstimate: underEstimate)
+        guard !reduceMotion, !Theme.isRendering else { return }
+        burstTint = underEstimate ? Theme.good : Theme.accent
+        burstCount = underEstimate ? 26 : 16
+        burstAt = .now
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.42)) { pulse = true }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(170))
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.62)) { pulse = false }
+            try? await Task.sleep(for: .milliseconds(1300))
+            burstAt = nil
         }
     }
 

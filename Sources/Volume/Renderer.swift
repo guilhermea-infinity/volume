@@ -48,6 +48,44 @@ enum Renderer {
             print("wrote \(url.path)")
         }
 
+        // Today, caught mid-celebration — checks the burst sits over the
+        // number without moving anything.
+        Theme.renderBurstAt = Date.now.addingTimeInterval(-0.28)
+        let celebrating = RootView(tab: .today)
+            .environmentObject(store)
+            .frame(width: w, height: h)
+            .environment(\.colorScheme, light ? .light : .dark)
+        let cr = ImageRenderer(content: celebrating)
+        cr.scale = 2
+        if let img = cr.nsImage, let tiff = img.tiffRepresentation,
+           let rep = NSBitmapImageRep(data: tiff),
+           let png = rep.representation(using: .png, properties: [:]) {
+            let url = URL(fileURLWithPath: dir).appendingPathComponent("today-burst.png")
+            try? png.write(to: url)
+            print("wrote \(url.path)")
+        }
+        Theme.renderBurstAt = nil
+
+        // Filmstrip of the completion burst — the only way to review an
+        // animation from a still.
+        let strip = HStack(spacing: 1) {
+            ForEach([0.06, 0.16, 0.3, 0.5, 0.75, 1.0], id: \.self) { t in
+                BurstView(seed: 4242, tint: Theme.good,
+                          start: Date.now.addingTimeInterval(-t), count: 26)
+                    .frame(width: 300, height: 280)
+                    .background(Theme.bg)
+            }
+        }
+        let sr = ImageRenderer(content: strip)
+        sr.scale = 2
+        if let img = sr.nsImage, let tiff = img.tiffRepresentation,
+           let rep = NSBitmapImageRep(data: tiff),
+           let png = rep.representation(using: .png, properties: [:]) {
+            let url = URL(fileURLWithPath: dir).appendingPathComponent("burst.png")
+            try? png.write(to: url)
+            print("wrote \(url.path)")
+        }
+
         for (name, line) in [("quickadd", "review IDS creatives batch 4 30m"),
                              ("quickadd-call", "call with Rafaela 30m")] {
             let quickAdd = QuickAddView(initialText: line, onAdd: { _, _, _ in }, onCancel: {})

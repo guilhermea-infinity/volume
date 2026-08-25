@@ -11,6 +11,9 @@ final class AppSettings: ObservableObject {
     @Published var appearance: String {
         didSet { UserDefaults.standard.set(appearance, forKey: "appearance") }
     }
+    @Published var soundEnabled: Bool {
+        didSet { UserDefaults.standard.set(soundEnabled, forKey: "soundEnabled") }
+    }
     @Published var calendarSyncEnabled: Bool {
         didSet {
             UserDefaults.standard.set(calendarSyncEnabled, forKey: "calendarSyncEnabled")
@@ -23,6 +26,7 @@ final class AppSettings: ObservableObject {
     init() {
         appearance = ProcessInfo.processInfo.environment["VOLUME_RENDER_APPEARANCE"]
             ?? UserDefaults.standard.string(forKey: "appearance") ?? "dark"
+        soundEnabled = UserDefaults.standard.object(forKey: "soundEnabled") as? Bool ?? true
         calendarSyncEnabled = UserDefaults.standard.object(forKey: "calendarSyncEnabled") as? Bool ?? true
     }
 }
@@ -50,6 +54,21 @@ struct SettingsSheet: View {
                     SegPill(label: "Light", selected: settings.appearance == "light") { settings.appearance = "light" }
                     SegPill(label: "System", selected: settings.appearance == "system") { settings.appearance = "system" }
                 }
+            }
+
+            // Finishing a task
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Eyebrow(text: "Sound on finish", color: Theme.faint, size: 13)
+                    Text("A click when a task lands. The animation stays either way.")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Theme.dim)
+                }
+                Spacer()
+                Toggle("", isOn: $settings.soundEnabled)
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .labelsHidden()
             }
 
             // Calendar sync

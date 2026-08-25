@@ -3,6 +3,8 @@ import SwiftUI
 enum Theme {
     /// True when rendering headless previews — swaps ScrollViews for plain stacks.
     static var isRendering = false
+    /// Set by the renderer to freeze a completion burst mid-flight for review.
+    static var renderBurstAt: Date?
     /// Resolved appearance, set by RootView before the tree evaluates.
     static var mode: ColorScheme = .dark
     private static var dark: Bool { mode == .dark }

@@ -37,7 +37,7 @@ struct AccentButton: View {
                     in: Capsule())
                 .overlay(Capsule().strokeBorder(disabled ? Theme.hairline : .clear))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressScale())
         .disabled(disabled)
         .onHover { hover = $0 }
         .animation(.easeOut(duration: 0.12), value: hover)
@@ -60,7 +60,7 @@ struct GhostButton: View {
                 .background(hover ? Theme.raised : .clear, in: Capsule())
                 .overlay(Capsule().strokeBorder(Theme.hairline))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressScale())
         .onHover { hover = $0 }
         .animation(.easeOut(duration: 0.12), value: hover)
     }
@@ -142,20 +142,87 @@ struct GhostRaceBar: View {
 
 // MARK: - Stat displays
 
+/// What a scoreboard number is, so it knows how to roll to its next value.
+enum StatValue: Equatable {
+    case minutes(Int)
+    case count(Int)
+    case text(String)
+
+    var number: Int? {
+        switch self {
+        case .minutes(let m): m
+        case .count(let c): c
+        case .text: nil
+        }
+    }
+
+    func string(_ n: Int) -> String {
+        switch self {
+        case .minutes: TimeParse.format(n)
+        case .count: "\(n)"
+        case .text(let s): s
+        }
+    }
+}
+
 struct StatBlock: View {
     let label: String
-    let value: String
+    let value: StatValue
     var color: Color = Theme.text
     var size: CGFloat = 30
+
+    /// Seeded from the first value rather than onAppear — ImageRenderer never
+    /// runs onAppear, and a scoreboard that renders 0m is a broken screenshot.
+    @State private var shown: Double
+
+    init(label: String, value: StatValue, color: Color = Theme.text, size: CGFloat = 30) {
+        self.label = label
+        self.value = value
+        self.color = color
+        self.size = size
+        _shown = State(initialValue: Double(value.number ?? 0))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             Eyebrow(text: label, color: Theme.faint, size: 13)
-            Text(value)
-                .font(Theme.din(size))
-                .foregroundStyle(color)
-                .contentTransition(.numericText())
+            Group {
+                if let n = value.number {
+                    CountingText(value: shown, font: Theme.din(size)) { value.string($0) }
+                        .onChange(of: n) { _, new in
+                            withAnimation(.timingCurve(0.15, 0.9, 0.25, 1, duration: 0.75)) {
+                                shown = Double(new)
+                            }
+                        }
+                } else {
+                    Text(value.string(0)).font(Theme.din(size))
+                }
+            }
+            .foregroundStyle(color)
         }
+    }
+}
+
+/// A bare rolling number for the Week hero, where the label sits above it.
+struct StatNumber: View {
+    let minutes: Int
+    var size: CGFloat
+
+    @State private var shown: Double
+
+    init(minutes: Int, size: CGFloat = 54) {
+        self.minutes = minutes
+        self.size = size
+        _shown = State(initialValue: Double(minutes))
+    }
+
+    var body: some View {
+        CountingText(value: shown, font: Theme.din(size)) { TimeParse.format($0) }
+            .onChange(of: minutes) { _, new in
+                withAnimation(.timingCurve(0.15, 0.9, 0.25, 1, duration: 0.85)) {
+                    shown = Double(new)
+                }
+            }
     }
 }
 
@@ -214,6 +281,7 @@ struct DoneRow: View {
     @EnvironmentObject var store: Store
     let entry: Entry
     var onEdit: (() -> Void)? = nil
+    @State private var landed = false
 
     private var resultColor: Color {
         if entry.kind == .call { return Theme.call }
@@ -251,8 +319,22 @@ struct DoneRow: View {
                 }
             }
         }
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(resultColor.opacity(landed ? 0.85 : 0), lineWidth: 1.5)
+        )
+        .scaleEffect(landed ? 1.025 : 1, anchor: .leading)
         .contentShape(Rectangle())
         .onTapGesture { onEdit?() }
+        // The row you just finished announces itself, then settles.
+        .onAppear {
+            guard let c = entry.completedAt, Date.now.timeIntervalSince(c) < 2.5 else { return }
+            landed = true
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(70))
+                withAnimation(.easeOut(duration: 0.85)) { landed = false }
+            }
+        }
         .contextMenu {
             if onEdit != nil { Button("Edit") { onEdit?() } }
             Button("Delete", role: .destructive) { store.delete(entry.id) }

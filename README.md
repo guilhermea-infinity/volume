@@ -29,6 +29,10 @@ no Gatekeeper quarantine to fight.
   all parse). Hit **Done** and it asks what it actually took: green badge =
   within estimate, red = over. Log past work and ad-hoc calls too. Click any
   finished row to fix it — title, estimate, actual, or the day it landed on.
+  Finishing pays out: the row lands lit, the focused number kicks and rolls up,
+  and a burst of bars comes off it — green and bigger when you beat your own
+  estimate. Passing the ghost sets off its own. Sound is a toggle in Settings;
+  everything respects Reduce Motion.
 - **Week** — focused minutes vs last week, with a **ghost**: a marker showing
   exactly where last-week-you was at this moment. Beat the week and the bar
   goes green. Tiles for tasks done, estimation accuracy, best day, call load.
@@ -75,8 +79,8 @@ Two backends, picked automatically:
 
 Neither sends anything anywhere.
 
-**Settings** (⚙, top right): dark / light / system appearance, calendar sync
-toggle + status, auto-tagging backend + re-tag, start at login.
+**Settings** (⚙, top right): dark / light / system appearance, sound on finish,
+calendar sync toggle + status, auto-tagging backend + re-tag, start at login.
 
 ![Light mode](assets/screenshots/week-light.png)
 
@@ -92,6 +96,8 @@ toggle + status, auto-tagging backend + re-tag, start at login.
   calendar keeps owning every entry you leave alone.
 - Headless UI previews for development: `.build/debug/Volume --render <dir>`
   with `VOLUME_DB` / `VOLUME_RENDER_APPEARANCE` / `VOLUME_RENDER_W` / `_H` env
-  overrides. `--parse "<line>"` checks the quick-add grammar.
+  overrides — it also writes a filmstrip of the completion burst, the only way
+  to review an animation from a still. `--parse "<line>"` checks the quick-add
+  grammar.
 
 MIT licensed.

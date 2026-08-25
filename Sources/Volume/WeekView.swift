@@ -11,6 +11,8 @@ struct DayBar: Identifiable {
 struct WeekView: View {
     @EnvironmentObject var store: Store
     @State private var now = Date.now
+    @State private var burstAt: Date?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let thisWeek = Stats.week(containing: now)
@@ -40,10 +42,17 @@ struct WeekView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Eyebrow(text: "Focused this week", color: Theme.dim)
                             HStack(alignment: .firstTextBaseline, spacing: 14) {
-                                Text(TimeParse.format(focusedThis))
-                                    .font(Theme.din(54))
+                                StatNumber(minutes: focusedThis, size: 54)
                                     .foregroundStyle(Theme.text)
-                                    .contentTransition(.numericText())
+                                    .overlay {
+                                        if let at = burstAt {
+                                            BurstView(seed: UInt64(at.timeIntervalSince1970 * 1000),
+                                                      tint: Theme.good, start: at,
+                                                      count: 30, drift: 70)
+                                                .frame(width: 620, height: 500)
+                                                .allowsHitTesting(false)
+                                        }
+                                    }
                                 if beaten {
                                     Chip(text: "GHOST BEATEN", color: Theme.good, filled: true)
                                         .transition(.scale.combined(with: .opacity))
@@ -70,6 +79,16 @@ struct WeekView: View {
                         beaten: beaten
                     )
                     .animation(.spring(response: 0.6, dampingFraction: 0.85), value: focusedThis)
+                    .onChange(of: beaten) { was, now in
+                        guard now, !was else { return }
+                        Feedback.ghostBeaten()
+                        guard !reduceMotion, !Theme.isRendering else { return }
+                        burstAt = .now
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(1600))
+                            burstAt = nil
+                        }
+                    }
 
                     HStack(spacing: 14) {
                         LegendKey(color: beaten ? Theme.good : Theme.accent, label: "You")
