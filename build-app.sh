@@ -43,3 +43,9 @@ PLIST
 
 codesign --force -s - "$APP"
 echo "Built $APP"
+
+if [ "${1:-}" = "--install" ]; then
+  rm -rf /Applications/Volume.app
+  cp -R "$APP" /Applications/Volume.app
+  echo "Installed to /Applications/Volume.app"
+fi
