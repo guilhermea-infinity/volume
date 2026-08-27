@@ -114,6 +114,11 @@ enum Feedback {
         haptic(.alignment)
     }
 
+    /// Starring something. A tick going on, nothing coming off.
+    static func starred(_ on: Bool) {
+        haptic(on ? .levelChange : .alignment)
+    }
+
     static func dropped() {
         haptic(.generic)
     }

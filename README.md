@@ -38,6 +38,13 @@ bundle in `build/` instead.
   goes green. Tiles for tasks done, estimation accuracy, best day, call load.
 - **History** — every day archived, grouped by week.
 
+Star a task and it keeps an accent outline — the one you're doing next. **⌘F**
+searches everything you've ever written down, titles and notes, with the part
+you typed picked out in the accent; pick a result and it takes you to the task,
+in Up next or back in the day it was finished.
+
+![Search](assets/screenshots/search.png)
+
 Drag a row up or down to reorder Up next: the rest step aside as you go, it
 clicks against your trackpad as you pass each one, and the order sticks. New
 tasks land at the bottom, under whatever you've sorted.

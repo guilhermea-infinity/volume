@@ -7,6 +7,8 @@ enum Theme {
     static var renderBurstAt: Date?
     /// Set by the renderer to open the first row's notes drawer.
     static var renderNotesOpen = false
+    /// Set by the renderer to show the search overlay with a query in it.
+    static var renderSearchQuery: String?
     /// Resolved appearance, set by RootView before the tree evaluates.
     static var mode: ColorScheme = .dark
     private static var dark: Bool { mode == .dark }

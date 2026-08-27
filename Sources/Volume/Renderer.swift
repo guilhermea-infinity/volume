@@ -48,6 +48,25 @@ enum Renderer {
             print("wrote \(url.path)")
         }
 
+        // The search overlay, mid-query.
+        Theme.renderSearchQuery = "enigmic"
+        Navigation.shared.searchOpen = true
+        let searching = RootView(tab: .today)
+            .environmentObject(store)
+            .frame(width: w, height: h)
+            .environment(\.colorScheme, light ? .light : .dark)
+        let searchRenderer = ImageRenderer(content: searching)
+        searchRenderer.scale = 2
+        if let img = searchRenderer.nsImage, let tiff = img.tiffRepresentation,
+           let rep = NSBitmapImageRep(data: tiff),
+           let png = rep.representation(using: .png, properties: [:]) {
+            let url = URL(fileURLWithPath: dir).appendingPathComponent("search.png")
+            try? png.write(to: url)
+            print("wrote \(url.path)")
+        }
+        Theme.renderSearchQuery = nil
+        Navigation.shared.searchOpen = false
+
         // Today with a notes drawer open.
         Theme.renderNotesOpen = true
         let noting = RootView(tab: .today)

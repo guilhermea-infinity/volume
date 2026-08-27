@@ -9,7 +9,7 @@ struct WeekGroup: Identifiable {
 
 struct HistoryView: View {
     @EnvironmentObject var store: Store
-    @State private var selected: Date?
+    @ObservedObject private var nav = Navigation.shared
 
     var body: some View {
         let groups = makeGroups()
@@ -29,8 +29,8 @@ struct HistoryView: View {
                         .padding(.horizontal, 6)
                         ForEach(g.days, id: \.self) { day in
                             DayRow(day: day,
-                                   isSelected: (selected ?? groups.first?.days.first) == day) {
-                                withAnimation(.easeOut(duration: 0.15)) { selected = day }
+                                   isSelected: (nav.historyDay ?? groups.first?.days.first) == day) {
+                                withAnimation(.easeOut(duration: 0.15)) { nav.historyDay = day }
                             }
                         }
                     }
@@ -48,7 +48,7 @@ struct HistoryView: View {
 
             Rectangle().fill(Theme.hairline).frame(width: 1)
 
-            if let day = selected ?? groups.first?.days.first {
+            if let day = nav.historyDay ?? groups.first?.days.first {
                 DayDetail(day: day)
             } else {
                 VStack {

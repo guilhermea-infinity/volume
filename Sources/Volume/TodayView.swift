@@ -20,6 +20,7 @@ struct TodayView: View {
     @State private var burstCount = 18
     @State private var pulse = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var nav = Navigation.shared
     @State private var now = Date.now
     @State private var laneWidth: CGFloat = 1000
 
@@ -151,6 +152,11 @@ struct TodayView: View {
         .sheet(isPresented: $showCall) { CallSheet() }
         .onAppear { focusedField = .title }
         .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { now = $0 }
+        .onChange(of: nav.revealEntry) { _, id in
+            guard let id else { return }
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) { expanded = id }
+            nav.revealEntry = nil
+        }
     }
 
     @ViewBuilder

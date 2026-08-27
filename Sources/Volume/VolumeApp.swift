@@ -47,6 +47,12 @@ struct VolumeApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1120, height: 740)
+        .commands {
+            CommandGroup(after: .textEditing) {
+                Button("Find…") { Navigation.shared.searchOpen.toggle() }
+                    .keyboardShortcut("f", modifiers: .command)
+            }
+        }
 
         MenuBarExtra {
             MenuBarPanel().environmentObject(store)
@@ -65,14 +71,14 @@ enum AppTab: String, CaseIterable {
 
 struct RootView: View {
     @EnvironmentObject var store: Store
-    @State private var tab: AppTab
+    @ObservedObject private var nav = Navigation.shared
     @State private var showSettings = false
     @ObservedObject private var settings = AppSettings.shared
     @Environment(\.colorScheme) private var systemScheme
     @Environment(\.openWindow) private var openWindow
 
     init(tab: AppTab = .today) {
-        _tab = State(initialValue: tab)
+        Navigation.shared.tab = tab
     }
 
     private var resolvedScheme: ColorScheme {
@@ -87,10 +93,10 @@ struct RootView: View {
         let scheme = resolvedScheme
         let _ = { Theme.mode = scheme }()
         VStack(spacing: 0) {
-            TopBar(tab: $tab, showSettings: $showSettings)
+            TopBar(tab: $nav.tab, showSettings: $showSettings)
             Rectangle().fill(Theme.hairline).frame(height: 1)
             Group {
-                switch tab {
+                switch nav.tab {
                 case .today: TodayView()
                 case .week: WeekView()
                 case .history: HistoryView()
@@ -100,6 +106,21 @@ struct RootView: View {
         }
         .id("appearance-\(settings.appearance)-\(scheme == .dark ? "d" : "l")")
         .background(Theme.bg.ignoresSafeArea())
+        .overlay(alignment: .top) {
+            if nav.searchOpen {
+                ZStack(alignment: .top) {
+                    Color.black.opacity(0.35)
+                        .ignoresSafeArea()
+                        .onTapGesture { nav.searchOpen = false }
+                    SearchOverlay()
+                        .environmentObject(store)
+                        .padding(.top, 90)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                .transition(.opacity)
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: nav.searchOpen)
         .preferredColorScheme(settings.appearance == "system" ? nil : scheme)
         .tint(Theme.accent)
         .sheet(isPresented: $showSettings) { SettingsSheet().environmentObject(settings).environmentObject(store) }

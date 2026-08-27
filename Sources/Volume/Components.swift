@@ -79,6 +79,8 @@ extension View { func card() -> some View { modifier(CardBG()) } }
 /// row doesn't sprout a second box, it grows.
 struct ExpandableRow<Row: View, Drawer: View>: View {
     let isOpen: Bool
+    /// Starred rows keep an accent outline whether they're open or not.
+    var accented = false
     let onToggle: () -> Void
     @ViewBuilder var row: Row
     @ViewBuilder var drawer: Drawer
@@ -100,11 +102,17 @@ struct ExpandableRow<Row: View, Drawer: View>: View {
         .background(hover && !isOpen ? Theme.raised : Theme.surface,
                     in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10)
-            .strokeBorder(isOpen ? Theme.accent.opacity(0.4) : Theme.hairline))
+            .strokeBorder(border, lineWidth: accented ? 1.5 : 1))
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .onHover { hover = $0 }
         .animation(.easeOut(duration: 0.12), value: hover)
         .animation(.spring(response: 0.34, dampingFraction: 0.84), value: isOpen)
+        .animation(.easeOut(duration: 0.2), value: accented)
+    }
+
+    private var border: Color {
+        if accented { return Theme.accent.opacity(0.85) }
+        return isOpen ? Theme.accent.opacity(0.4) : Theme.hairline
     }
 }
 
@@ -417,11 +425,9 @@ struct PlannedRow: View {
     let onDone: () -> Void
 
     var body: some View {
-        ExpandableRow(isOpen: isOpen, onToggle: onToggle) {
+        ExpandableRow(isOpen: isOpen, accented: entry.priority, onToggle: onToggle) {
             HStack(spacing: 10) {
-                Circle()
-                    .strokeBorder(Theme.faint, lineWidth: 1.5)
-                    .frame(width: 13, height: 13)
+                PriorityStar(entry: entry)
                 Text(entry.title)
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.text)
@@ -439,6 +445,30 @@ struct PlannedRow: View {
             if onEdit != nil { Button("Edit") { onEdit?() } }
             Button("Delete", role: .destructive) { store.delete(entry.id) }
         }
+    }
+}
+
+/// Star it and it holds an accent outline — the one you're doing next.
+struct PriorityStar: View {
+    @EnvironmentObject var store: Store
+    let entry: Entry
+    @State private var hover = false
+
+    var body: some View {
+        Button {
+            store.setPriority(!entry.priority, for: entry.id)
+            Feedback.starred(entry.priority == false)
+        } label: {
+            Image(systemName: entry.priority ? "star.fill" : "star")
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(entry.priority ? Theme.accent : (hover ? Theme.dim : Theme.faint))
+                .symbolEffect(.bounce, value: entry.priority)
+                .frame(width: 15, height: 15)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScale())
+        .onHover { hover = $0 }
+        .help(entry.priority ? "Unstar" : "Star as priority")
     }
 }
 
