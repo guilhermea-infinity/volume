@@ -38,7 +38,10 @@ bundle in `build/` instead.
   goes green. Tiles for tasks done, estimation accuracy, best day, call load.
 - **History** — every day archived, grouped by week.
 
-Star a task and it keeps an accent outline — the one you're doing next. **⌘F**
+Star a task and it jumps to the top of Up next and keeps an accent outline —
+the one you're doing next. Unstarring leaves it where it is, and so does
+dragging it somewhere else afterwards: the star sets the order, it doesn't
+lock it. **⌘F**
 searches everything you've ever written down, titles and notes, with the part
 you typed picked out in the accent; pick a result and it takes you to the task,
 in Up next or back in the day it was finished.

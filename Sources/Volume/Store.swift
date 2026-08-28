@@ -263,14 +263,26 @@ final class Store: ObservableObject {
         if let value { sqlite3_bind_int64(st, idx, value) } else { sqlite3_bind_null(st, idx) }
     }
 
-    /// Starring is a toggle you hit while reading the list, so it patches the
-    /// row in place rather than reloading everything under the cursor.
+    /// Starring sends a task to the top of Up next — the star is a decision
+    /// about order, not a label. Unstarring leaves it where it is; so does
+    /// dragging it somewhere else afterwards.
     func setPriority(_ on: Bool, for id: Int64) {
         run("UPDATE entries SET priority = ? WHERE id = ?") { st in
             sqlite3_bind_int(st, 1, on ? 1 : 0)
             sqlite3_bind_int64(st, 2, id)
         }
-        if let i = entries.firstIndex(where: { $0.id == id }) { entries[i].priority = on }
+        if on {
+            run("""
+                UPDATE entries
+                   SET sort_index = (SELECT COALESCE(MIN(sort_index), 0) - 1
+                                       FROM entries
+                                      WHERE kind = 'task' AND completed_at IS NULL)
+                 WHERE id = ?
+                """) { st in
+                sqlite3_bind_int64(st, 1, id)
+            }
+        }
+        load()
     }
 
     /// Writes the hand-sorted order of Up next, top to bottom.

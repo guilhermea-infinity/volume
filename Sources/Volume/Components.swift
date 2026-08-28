@@ -456,8 +456,11 @@ struct PriorityStar: View {
 
     var body: some View {
         Button {
-            store.setPriority(!entry.priority, for: entry.id)
-            Feedback.starred(entry.priority == false)
+            let on = !entry.priority
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
+                store.setPriority(on, for: entry.id)
+            }
+            Feedback.starred(on)
         } label: {
             Image(systemName: entry.priority ? "star.fill" : "star")
                 .font(.system(size: 11.5, weight: .semibold))
