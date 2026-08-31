@@ -48,6 +48,20 @@ enum Renderer {
             print("wrote \(url.path)")
         }
 
+        // The export sheet.
+        let exportSheet = ExportSheet()
+            .environmentObject(store)
+            .environment(\.colorScheme, light ? .light : .dark)
+        let er = ImageRenderer(content: exportSheet)
+        er.scale = 2
+        if let img = er.nsImage, let tiff = img.tiffRepresentation,
+           let rep = NSBitmapImageRep(data: tiff),
+           let png = rep.representation(using: .png, properties: [:]) {
+            let url = URL(fileURLWithPath: dir).appendingPathComponent("export.png")
+            try? png.write(to: url)
+            print("wrote \(url.path)")
+        }
+
         // The search overlay, mid-query.
         Theme.renderSearchQuery = "enigmic"
         Navigation.shared.searchOpen = true

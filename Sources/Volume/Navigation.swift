@@ -12,6 +12,7 @@ final class Navigation: ObservableObject {
     /// A planned task to open the drawer for, once Today is on screen.
     @Published var revealEntry: Int64?
     @Published var searchOpen = false
+    @Published var exportOpen = false
 
     /// Take me to this entry, wherever it lives.
     func go(to entry: Entry) {

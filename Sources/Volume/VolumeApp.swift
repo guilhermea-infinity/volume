@@ -22,6 +22,27 @@ struct VolumeApp: App {
             }
             exit(0)
         }
+        // Scriptable export: `Volume --export markdown --days 14` to stdout, so a
+        // weekly review can be piped straight into whatever reads it.
+        if let i = CommandLine.arguments.firstIndex(of: "--export") {
+            let name = (CommandLine.arguments.indices.contains(i + 1)
+                        ? CommandLine.arguments[i + 1] : "markdown").lowercased()
+            let format = ExportFormat.allCases.first {
+                $0.rawValue.lowercased() == name || $0.ext == name
+            } ?? .markdown
+            var days = 7
+            if let d = CommandLine.arguments.firstIndex(of: "--days"),
+               CommandLine.arguments.indices.contains(d + 1),
+               let n = Int(CommandLine.arguments[d + 1]) {
+                days = max(1, n)
+            }
+            let cal = Stats.calendar
+            let to = cal.startOfDay(for: .now)
+            let from = cal.date(byAdding: .day, value: -(days - 1), to: to) ?? to
+            print(Export.build(Store().entries, from: from, to: to,
+                               format: format, includeUpNext: true))
+            exit(0)
+        }
         let s = Store()
         _store = StateObject(wrappedValue: s)
         QuickAdd.shared.configure(store: s)
@@ -51,6 +72,10 @@ struct VolumeApp: App {
             CommandGroup(after: .textEditing) {
                 Button("Find…") { Navigation.shared.searchOpen.toggle() }
                     .keyboardShortcut("f", modifiers: .command)
+            }
+            CommandGroup(after: .newItem) {
+                Button("Export History…") { Navigation.shared.exportOpen = true }
+                    .keyboardShortcut("e", modifiers: .command)
             }
         }
 
@@ -123,6 +148,7 @@ struct RootView: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: nav.searchOpen)
         .preferredColorScheme(settings.appearance == "system" ? nil : scheme)
         .tint(Theme.accent)
+        .sheet(isPresented: $nav.exportOpen) { ExportSheet().environmentObject(store) }
         .sheet(isPresented: $showSettings) { SettingsSheet().environmentObject(settings).environmentObject(store) }
         .environmentObject(settings)
         .onAppear {

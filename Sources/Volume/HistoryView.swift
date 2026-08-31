@@ -140,8 +140,12 @@ struct DayDetail: View {
 
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
-                Eyebrow(text: day.formatted(.dateTime.weekday(.wide).day().month(.wide)),
-                        color: Theme.faint, size: 14)
+                HStack {
+                    Eyebrow(text: day.formatted(.dateTime.weekday(.wide).day().month(.wide)),
+                            color: Theme.faint, size: 14)
+                    Spacer()
+                    GhostButton(title: "Export…") { Navigation.shared.exportOpen = true }
+                }
                 HStack(alignment: .firstTextBaseline, spacing: 26) {
                     StatBlock(label: "Focused", value: .minutes(focused), color: Theme.accent)
                     StatBlock(label: "Tasks", value: .count(taskCount))

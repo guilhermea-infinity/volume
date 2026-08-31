@@ -48,6 +48,19 @@ in Up next or back in the day it was finished.
 
 ![Search](assets/screenshots/search.png)
 
+**Export** (⌘E, or the button in History) hands a period over as text: pick a
+window, pick Markdown, CSV or JSON, see exactly what you're taking, then copy
+it or save it. Markdown is written to be read by a model — totals, estimation
+accuracy, where the time went, then every day with its tasks, deltas, tags and
+notes, and what's still up next. There's a command-line version too, so a
+weekly review can be piped straight into whatever reads it:
+
+```
+/Applications/Volume.app/Contents/MacOS/Volume --export markdown --days 7
+```
+
+![Export](assets/screenshots/export.png)
+
 Drag a row up or down to reorder Up next: the rest step aside as you go, it
 clicks against your trackpad as you pass each one, and the order sticks. New
 tasks land at the bottom, under whatever you've sorted.
@@ -126,6 +139,6 @@ calendar sync toggle + status, auto-tagging backend + re-tag, start at login.
   with `VOLUME_DB` / `VOLUME_RENDER_APPEARANCE` / `VOLUME_RENDER_W` / `_H` env
   overrides — it also writes a filmstrip of the completion burst, the only way
   to review an animation from a still. `--parse "<line>"` checks the quick-add
-  grammar.
+  grammar. `--export <markdown|csv|json> --days N` prints a period to stdout.
 
 MIT licensed.
